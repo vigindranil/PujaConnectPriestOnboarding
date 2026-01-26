@@ -8,16 +8,16 @@ import './App.css';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginScreen />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/priest-registration" element={<PriestRegistration />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginScreen />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/priest-registration" element={<PriestRegistration />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+
   );
 }
 
