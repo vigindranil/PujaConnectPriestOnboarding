@@ -332,7 +332,7 @@ class AuthService {
   /**
  * Save Priest Profile
  */
-async savePriestProfile(profileData: PriestProfileData): Promise<PriestRegistrationResponse> {
+async savePriestProfile(profileData: any): Promise<any> {
   try {
     const token = await this.getValidToken();
     
