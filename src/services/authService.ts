@@ -326,6 +326,47 @@ class AuthService {
       throw error;
     }
   }
+
+
+
+  /**
+ * Save Priest Profile
+ */
+async savePriestProfile(profileData: PriestProfileData): Promise<PriestRegistrationResponse> {
+  try {
+    const token = await this.getValidToken();
+    
+    // Prepare encrypted data
+    const encData = JSON.stringify(profileData);
+
+    const response = await fetch(`${API_BASE_URL}/authority/save_authority_user_profile`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'accept': '*/*',
+      },
+      body: JSON.stringify({
+        enc_data: encData,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: PriestRegistrationResponse = await response.json();
+
+    if (data.status === 0) {
+      return data;
+    } else {
+      throw new Error(data.message || 'Failed to save priest profile');
+    }
+  } catch (error) {
+    console.error('Error saving priest profile:', error);
+    throw error;
+  }
+}
 }
 
 // Export singleton instance

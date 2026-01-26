@@ -48,9 +48,18 @@ interface PriestRegistrationFormData {
 }
 
 interface PriestRegistrationStepperProps {
-  onComplete: (data: PriestRegistrationFormData) => void;
+  onComplete: (
+    data: PriestRegistrationFormData,
+    additionalData: {
+      registeredUserId: number | null;
+      states: Array<{ state_id: number; state_name: string; is_territory: number }>;
+      districts: Array<{ district_id: number; district_name: string; state_id: number }>;
+      policeStations: Array<{ ps_id: number; ps_name: string; ps_type_id: number }>;
+    }
+  ) => void;
   onCancel: () => void;
 }
+
 
 export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps> = ({
   onComplete,
@@ -82,7 +91,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const [policeStationSearchQuery, setPoliceStationSearchQuery] = useState('');
   const [documentTypeSearchQuery, setDocumentTypeSearchQuery] = useState('');
   const [templeSearchQuery, setTempleSearchQuery] = useState('');
-  
+
   // Dropdown visibility states
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
   const [showStateDropdown, setShowStateDropdown] = useState(false);
@@ -93,6 +102,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
   // Validation states
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [registeredUserId, setRegisteredUserId] = useState<number | null>(null);
 
   // Validation functions
   const validateField = (field: string, value: string | boolean | string[] | undefined): string => {
@@ -100,7 +110,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     if (typeof value === 'boolean') return '';
     if (Array.isArray(value)) return '';
     const stringValue = value || '';
-    
+
     switch (field) {
       case 'fullName':
         if (!stringValue || stringValue.trim().length < 2) return 'Full name must be at least 2 characters';
@@ -186,44 +196,44 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
     switch (currentStep) {
       case 2: {
-        const fullNameError = validateField('fullName', formData.fullName);
+        // const fullNameError = validateField('fullName', formData.fullName);
         const mobileError = validateField('mobileNumber', formData.mobileNumber);
         const altMobileError = validateField('alternateMobile', formData.alternateMobile);
         const emailError = validateField('emailAddress', formData.emailAddress);
-        
-        if (fullNameError) { errors.fullName = fullNameError; isValid = false; }
+
+        // if (fullNameError) { errors.fullName = fullNameError; isValid = false; }
         if (mobileError) { errors.mobileNumber = mobileError; isValid = false; }
         if (altMobileError) { errors.alternateMobile = altMobileError; isValid = false; }
         if (emailError) { errors.emailAddress = emailError; isValid = false; }
         if (!formData.otpVerified) { errors.otpVerified = 'Please verify your mobile number'; isValid = false; }
         break;
       }
-        
+
       case 3: {
         const parentNameError = validateField('parentName', formData.parentName);
         const dobError = validateField('dateOfBirth', formData.dateOfBirth);
-        
+
         if (parentNameError) { errors.parentName = parentNameError; isValid = false; }
         if (dobError) { errors.dateOfBirth = dobError; isValid = false; }
         if (!formData.gender) { errors.gender = 'Please select gender'; isValid = false; }
         break;
       }
-        
+
       case 5: {
         const docNumError = validateField('documentNumber', formData.documentNumber);
-        
+
         if (!formData.documentType) { errors.documentType = 'Please select document type'; isValid = false; }
         if (docNumError) { errors.documentNumber = docNumError; isValid = false; }
         break;
       }
-        
+
       case 6: {
         const houseError = validateField('houseNumber', formData.houseNumber);
         const streetError = validateField('street', formData.street);
         const cityError = validateField('city', formData.city);
         const postOfficeError = validateField('postOffice', formData.postOffice);
         const pinCodeError = validateField('pinCode', formData.pinCode);
-        
+
         if (houseError) { errors.houseNumber = houseError; isValid = false; }
         if (streetError) { errors.street = streetError; isValid = false; }
         if (cityError) { errors.city = cityError; isValid = false; }
@@ -234,29 +244,29 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         if (!formData.policeStation) { errors.policeStation = 'Please select police station'; isValid = false; }
         break;
       }
-        
+
       case 8: {
         const experienceError = validateField('yearsOfExperience', formData.yearsOfExperience);
-        
+
         if (experienceError) { errors.yearsOfExperience = experienceError; isValid = false; }
         if (!formData.primaryLanguage) { errors.primaryLanguage = 'Please select primary language'; isValid = false; }
         break;
       }
-        
+
       case 9:
         if (formData.associatedWithTemple) {
           const templeNameError = validateField('templeName', formData.templeName);
           const managingAuthorityError = validateField('managingAuthority', formData.managingAuthority);
           const templeAddressError = validateField('templeAddress', formData.templeAddress);
           const templeContactError = validateField('templeContactNumber', formData.templeContactNumber);
-          
+
           if (templeNameError) { errors.templeName = templeNameError; isValid = false; }
           if (managingAuthorityError) { errors.managingAuthority = managingAuthorityError; isValid = false; }
           if (templeAddressError) { errors.templeAddress = templeAddressError; isValid = false; }
           if (templeContactError) { errors.templeContactNumber = templeContactError; isValid = false; }
         }
         break;
-        
+
       case 10:
         if (formData.selectedPujas.length === 0) {
           errors.selectedPujas = 'Please select at least one puja';
@@ -264,7 +274,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         }
         break;
     }
-    
+
     // Only set validation errors if there are errors to avoid unnecessary re-renders
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
@@ -274,7 +284,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
   // Handle Step 2 completion and API call
   const handleStep2Complete = async () => {
-    if (!formData.fullName || !formData.mobileNumber || !formData.otpVerified) {
+    if (!formData.mobileNumber || !formData.otpVerified) {
       return false;
     }
 
@@ -283,19 +293,29 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       setRegistrationError('');
 
       const priestData = {
-        user_name: formData.fullName,
+        user_name: formData.mobileNumber,
         contact_no: formData.mobileNumber,
         alternate_contact_no: formData.alternateMobile || formData.mobileNumber,
         registration_mode: formData.registrationMode === 'self' ? 1 : 2,
-        user_type_id: 1, // Priest user type
+        user_type_id: 1,
         email: formData.emailAddress || '',
-        entry_user_id: 1 // Current user ID
+        entry_user_id: 1
       };
 
       const response = await authService.registerPriest(priestData);
-      
+
       if (response.status === 0) {
-        // Registration successful, proceed to next step
+        // Parse the user_id from response data if available
+        if (response.data) {
+          try {
+            const parsedData = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+            if (parsedData.user_id) {
+              setRegisteredUserId(parsedData.user_id);
+            }
+          } catch (e) {
+            console.error('Error parsing user_id from response:', e);
+          }
+        }
         return true;
       } else {
         setRegistrationError(response.message || 'Registration failed');
@@ -344,7 +364,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_ALL_LANGUAGES);
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -356,11 +376,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('Languages API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setLanguages(parsedData);
@@ -388,7 +408,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_DOCUMENT_TYPES);
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -400,11 +420,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('Document Types API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setDocumentTypes(parsedData);
@@ -453,7 +473,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_STATES);
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -465,11 +485,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('States API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setStates(parsedData);
@@ -496,11 +516,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_DISTRICTS);
-        
+
         // Find the state_id for the selected state
         const selectedState = states.find(s => s.state_name === formData.state);
         if (!selectedState) return;
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -512,11 +532,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('Districts API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setDistricts(parsedData);
@@ -543,11 +563,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_POLICE_STATIONS);
-        
+
         // Find the district_id for the selected district
         const selectedDistrict = districts.find(d => d.district_name === formData.district);
         if (!selectedDistrict) return;
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -559,11 +579,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('Police Stations API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setPoliceStations(parsedData);
@@ -590,11 +610,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       try {
         const token = await authService.getValidToken();
         const url = getApiUrl(API_CONFIG.ENDPOINTS.MASTER.GET_TEMPLES);
-        
+
         // Find the state_id for the selected state
         const selectedState = states.find(s => s.state_name === formData.state);
         if (!selectedState) return;
-        
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -606,11 +626,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         });
 
         const result = await response.json();
-        
+
         if (API_CONFIG.DEBUG) {
           console.log('Temples API Result:', result);
         }
-        
+
         if (result.status === 0 && result.data) {
           const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
           setTemples(parsedData);
@@ -633,7 +653,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       ...prev,
       [field]: value,
     }));
-    
+
     // Clear validation error for this field
     if (validationErrors[field]) {
       setValidationErrors(prev => {
@@ -664,7 +684,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   ];
 
   // Filter pujas based on search query
-  const filteredPujaOptions = pujaOptions.filter(puja => 
+  const filteredPujaOptions = pujaOptions.filter(puja =>
     puja.name.toLowerCase().includes(pujaSearchQuery.toLowerCase())
   );
 
@@ -708,7 +728,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       case 1:
         return formData.registrationMode !== '';
       case 2:
-        return formData.fullName && formData.mobileNumber.length === 10 && formData.otpVerified;
+        return formData.mobileNumber.length === 10 && formData.otpVerified;
       case 3:
         return formData.parentName && formData.dateOfBirth && formData.gender;
       case 4:
@@ -733,7 +753,12 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   };
 
   const handleSubmit = () => {
-    onComplete(formData);
+    onComplete(formData, {
+      registeredUserId,
+      states,
+      districts,
+      policeStations,
+    });
   };
 
   return (
@@ -741,8 +766,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-lg border-b border-orange-100 sticky top-0 z-40 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
-          <button 
-            onClick={currentStep === 1 ? onCancel : () => setCurrentStep(currentStep - 1)} 
+          <button
+            onClick={currentStep === 1 ? onCancel : () => setCurrentStep(currentStep - 1)}
             className="p-2.5 hover:bg-orange-50 rounded-xl transition-all duration-200 group"
           >
             {currentStep === 1 ? (
@@ -764,11 +789,11 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           </div>
           <div className="w-10"></div>
         </div>
-        
+
         {/* Progress Bar */}
         <div className="bg-gradient-to-r from-orange-100 to-amber-100 h-2">
-          <div 
-            className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 h-full transition-all duration-500 ease-out shadow-lg" 
+          <div
+            className="bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 h-full transition-all duration-500 ease-out shadow-lg"
             style={{ width: `${(currentStep / totalSteps) * 100}%` }}
           ></div>
         </div>
@@ -779,27 +804,24 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             {stepTitles.map((title, idx) => (
               <div
                 key={idx}
-                className={`flex items-center transition-all duration-300 ${
-                  idx + 1 === currentStep ? 'scale-110' : 'scale-100'
-                }`}
+                className={`flex items-center transition-all duration-300 ${idx + 1 === currentStep ? 'scale-110' : 'scale-100'
+                  }`}
               >
                 <div
-                  className={`flex flex-col items-center min-w-[60px] ${
-                    idx + 1 === currentStep
-                      ? 'text-orange-700'
-                      : idx + 1 < currentStep
+                  className={`flex flex-col items-center min-w-[60px] ${idx + 1 === currentStep
+                    ? 'text-orange-700'
+                    : idx + 1 < currentStep
                       ? 'text-green-600'
                       : 'text-gray-400'
-                  }`}
+                    }`}
                 >
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                      idx + 1 === currentStep
-                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200'
-                        : idx + 1 < currentStep
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${idx + 1 === currentStep
+                      ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-200'
+                      : idx + 1 < currentStep
                         ? 'bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md'
                         : 'bg-gray-100 text-gray-500'
-                    }`}
+                      }`}
                   >
                     {idx + 1 < currentStep ? <Check className="w-5 h-5" /> : idx + 1}
                   </div>
@@ -817,7 +839,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-8 pb-32">
-          
+
           {/* Step 1: Registration Mode */}
           {currentStep === 1 && (
             <div className="space-y-6 animate-fadeIn">
@@ -825,21 +847,19 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-3">Welcome!</h2>
                 <p className="text-gray-600">Choose how you'd like to register</p>
               </div>
-              
+
               <div className="space-y-4">
                 <button
                   onClick={() => handleInputChange('registrationMode', 'self')}
-                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${
-                    formData.registrationMode === 'self'
-                      ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
-                  }`}
+                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${formData.registrationMode === 'self'
+                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
+                    : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                        formData.registrationMode === 'self' ? 'bg-orange-100' : 'bg-gray-100'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${formData.registrationMode === 'self' ? 'bg-orange-100' : 'bg-gray-100'
+                        }`}>
                         <User className={`w-7 h-7 ${formData.registrationMode === 'self' ? 'text-orange-600' : 'text-gray-500'}`} />
                       </div>
                       <div>
@@ -847,11 +867,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         <p className="text-sm text-gray-600 mt-1">Register yourself independently</p>
                       </div>
                     </div>
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                      formData.registrationMode === 'self' 
-                        ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200' 
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${formData.registrationMode === 'self'
+                      ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200'
+                      : 'border-gray-300'
+                      }`}>
                       {formData.registrationMode === 'self' && <Check className="w-4 h-4 text-white" />}
                     </div>
                   </div>
@@ -859,17 +878,15 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
                 <button
                   onClick={() => handleInputChange('registrationMode', 'survey')}
-                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${
-                    formData.registrationMode === 'survey'
-                      ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
-                  }`}
+                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${formData.registrationMode === 'survey'
+                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
+                    : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                        formData.registrationMode === 'survey' ? 'bg-orange-100' : 'bg-gray-100'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${formData.registrationMode === 'survey' ? 'bg-orange-100' : 'bg-gray-100'
+                        }`}>
                         <Sparkles className={`w-7 h-7 ${formData.registrationMode === 'survey' ? 'text-orange-600' : 'text-gray-500'}`} />
                       </div>
                       <div>
@@ -877,11 +894,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         <p className="text-sm text-gray-600 mt-1">Get help with registration</p>
                       </div>
                     </div>
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                      formData.registrationMode === 'survey' 
-                        ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200' 
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${formData.registrationMode === 'survey'
+                      ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200'
+                      : 'border-gray-300'
+                      }`}>
                       {formData.registrationMode === 'survey' && <Check className="w-4 h-4 text-white" />}
                     </div>
                   </div>
@@ -900,30 +916,9 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Contact Information</h2>
                 <p className="text-gray-600">We'll use this to verify your identity</p>
               </div>
-              
+
               <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">Full Name *</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) => handleInputChange('fullName', e.target.value)}
-                      placeholder="Enter your full name"
-                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${
-                        validationErrors.fullName 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                          : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
-                      }`}
-                    />
-                  </div>
-                  {validationErrors.fullName && (
-                    <p className="text-sm text-red-500 mt-2 font-medium">
-                      {validationErrors.fullName}
-                    </p>
-                  )}
-                </div>
+
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">Mobile Number *</label>
@@ -942,18 +937,16 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         }
                       }}
                       placeholder="Enter 10-digit mobile number"
-                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all ${
-                        validationErrors.mobileNumber 
-                          ? 'border-red-500 focus:border-red-500' 
-                          : 'border-gray-200 focus:border-orange-500'
-                      }`}
+                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all ${validationErrors.mobileNumber
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-gray-200 focus:border-orange-500'
+                        }`}
                       disabled={formData.otpVerified}
                     />
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <p className={`text-xs ${
-                      validationErrors.mobileNumber ? 'text-red-500' : 'text-gray-500'
-                    }`}>
+                    <p className={`text-xs ${validationErrors.mobileNumber ? 'text-red-500' : 'text-gray-500'
+                      }`}>
                       {validationErrors.mobileNumber || `${formData.mobileNumber.length}/10 digits`}
                     </p>
                     {formData.mobileNumber.length === 10 && !validationErrors.mobileNumber && (
@@ -983,11 +976,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       }
                     }}
                     disabled={loadingOtp}
-                    className={`w-full py-4 rounded-xl font-semibold transition-all transform ${
-                      loadingOtp
-                        ? 'bg-gray-400 text-white cursor-not-allowed'
-                        : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-200 hover:scale-[1.02]'
-                    }`}
+                    className={`w-full py-4 rounded-xl font-semibold transition-all transform ${loadingOtp
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-200 hover:scale-[1.02]'
+                      }`}
                   >
                     {loadingOtp ? 'Sending OTP...' : 'Send OTP'}
                   </button>
@@ -1004,7 +996,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP *</label>
                       <p className="text-xs text-gray-600 mb-3">We've sent a 6-digit OTP to {formData.mobileNumber}</p>
                     </div>
-                    
+
                     <div className="flex justify-center gap-2">
                       {[0, 1, 2, 3, 4, 5].map((index) => (
                         <input
@@ -1024,7 +1016,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                               newOtp[index] = value;
                               const updatedOtp = newOtp.join('');
                               setOtpInput(updatedOtp);
-                              
+
                               // Auto-focus next input
                               if (index < 5 && value) {
                                 const nextInput = (window as any)[`otp-input-${index + 1}`];
@@ -1057,7 +1049,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                             e.preventDefault();
                             const pastedText = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
                             setOtpInput(pastedText);
-                            
+
                             // Focus the last filled input or the next empty one
                             const nextIndex = Math.min(pastedText.length, 5);
                             const targetInput = (window as any)[`otp-input-${nextIndex}`];
@@ -1094,11 +1086,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       }
                     }}
                     disabled={otpInput.length !== 6 || loadingOtp}
-                    className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                      otpInput.length === 6 && !loadingOtp
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-200 transform hover:scale-[1.02]'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`w-full py-3 rounded-xl font-semibold transition-all ${otpInput.length === 6 && !loadingOtp
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg hover:shadow-orange-200 transform hover:scale-[1.02]'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
                   >
                     {loadingOtp ? 'Verifying...' : 'Verify OTP'}
                   </button>
@@ -1161,11 +1152,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         }
                       }}
                       placeholder="Alternate contact number"
-                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all ${
-                        validationErrors.alternateMobile 
-                          ? 'border-red-500 focus:border-red-500' 
-                          : 'border-gray-200 focus:border-orange-500'
-                      }`}
+                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-100 transition-all ${validationErrors.alternateMobile
+                        ? 'border-red-500 focus:border-red-500'
+                        : 'border-gray-200 focus:border-orange-500'
+                        }`}
                     />
                   </div>
                   {validationErrors.alternateMobile && (
@@ -1182,11 +1172,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       value={formData.emailAddress || ''}
                       onChange={(e) => handleInputChange('emailAddress', e.target.value)}
                       placeholder="your.email@example.com"
-                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${
-                        validationErrors.emailAddress 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                          : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
-                      }`}
+                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${validationErrors.emailAddress
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
+                        }`}
                     />
                   </div>
                   {validationErrors.emailAddress && (
@@ -1196,7 +1185,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                   )}
                 </div>
               </div>
-              
+
               {registrationError && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                   <div className="flex items-center gap-3">
@@ -1220,8 +1209,29 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Personal Details</h2>
                 <p className="text-gray-600">Tell us about yourself</p>
               </div>
-              
+
               <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">Full Name *</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.fullName}
+                      onChange={(e) => handleInputChange('fullName', e.target.value)}
+                      placeholder="Enter your full name"
+                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${validationErrors.fullName
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
+                        }`}
+                    />
+                  </div>
+                  {validationErrors.fullName && (
+                    <p className="text-sm text-red-500 mt-2 font-medium">
+                      {validationErrors.fullName}
+                    </p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">Parent's Name *</label>
                   <input
@@ -1229,11 +1239,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                     value={formData.parentName}
                     onChange={(e) => handleInputChange('parentName', e.target.value)}
                     placeholder="Father's or Mother's name"
-                    className={`w-full px-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${
-                      validationErrors.parentName 
-                        ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
-                    }`}
+                    className={`w-full px-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${validationErrors.parentName
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                      : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
+                      }`}
                   />
                   {validationErrors.parentName && (
                     <p className="text-sm text-red-500 mt-2 font-medium">
@@ -1250,11 +1259,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       type="date"
                       value={formData.dateOfBirth}
                       onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${
-                        validationErrors.dateOfBirth 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                          : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
-                      }`}
+                      className={`w-full pl-12 pr-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${validationErrors.dateOfBirth
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
+                        }`}
                     />
                   </div>
                   {validationErrors.dateOfBirth && (
@@ -1277,11 +1285,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                           onChange={(e) => handleInputChange('gender', e.target.value)}
                           className="hidden"
                         />
-                        <div className={`p-4 text-center rounded-xl border-2 transition-all duration-200 transform hover:scale-105 ${
-                          formData.gender === gen.toLowerCase()
-                            ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-lg'
-                            : 'border-gray-200 bg-white hover:border-orange-200'
-                        }`}>
+                        <div className={`p-4 text-center rounded-xl border-2 transition-all duration-200 transform hover:scale-105 ${formData.gender === gen.toLowerCase()
+                          ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-lg'
+                          : 'border-gray-200 bg-white hover:border-orange-200'
+                          }`}>
                           <span className={`font-semibold ${formData.gender === gen.toLowerCase() ? 'text-orange-700' : 'text-gray-700'}`}>
                             {gen}
                           </span>
@@ -1301,21 +1308,19 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Identity Verification</h2>
                 <p className="text-gray-600">Choose your verification method</p>
               </div>
-              
+
               <div className="space-y-4">
                 <button
                   onClick={() => handleInputChange('identityType', 'aadhaar')}
-                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${
-                    formData.identityType === 'aadhaar'
-                      ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
-                  }`}
+                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${formData.identityType === 'aadhaar'
+                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
+                    : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                        formData.identityType === 'aadhaar' ? 'bg-orange-100' : 'bg-gray-100'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${formData.identityType === 'aadhaar' ? 'bg-orange-100' : 'bg-gray-100'
+                        }`}>
                         <span className="text-2xl">🆔</span>
                       </div>
                       <div>
@@ -1323,11 +1328,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         <p className="text-sm text-gray-600 mt-1">Quick & secure verification</p>
                       </div>
                     </div>
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                      formData.identityType === 'aadhaar' 
-                        ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200' 
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${formData.identityType === 'aadhaar'
+                      ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200'
+                      : 'border-gray-300'
+                      }`}>
                       {formData.identityType === 'aadhaar' && <Check className="w-4 h-4 text-white" />}
                     </div>
                   </div>
@@ -1335,17 +1339,15 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
                 <button
                   onClick={() => handleInputChange('identityType', 'manual')}
-                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${
-                    formData.identityType === 'manual'
-                      ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
-                      : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
-                  }`}
+                  className={`w-full p-6 border-2 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.02] ${formData.identityType === 'manual'
+                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-amber-50 shadow-xl shadow-orange-100'
+                    : 'border-gray-200 bg-white hover:border-orange-200 hover:shadow-lg'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                        formData.identityType === 'manual' ? 'bg-orange-100' : 'bg-gray-100'
-                      }`}>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${formData.identityType === 'manual' ? 'bg-orange-100' : 'bg-gray-100'
+                        }`}>
                         <span className="text-2xl">📄</span>
                       </div>
                       <div>
@@ -1353,11 +1355,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         <p className="text-sm text-gray-600 mt-1">Upload other ID documents</p>
                       </div>
                     </div>
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                      formData.identityType === 'manual' 
-                        ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200' 
-                        : 'border-gray-300'
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${formData.identityType === 'manual'
+                      ? 'border-orange-600 bg-orange-600 shadow-lg shadow-orange-200'
+                      : 'border-gray-300'
+                      }`}>
                       {formData.identityType === 'manual' && <Check className="w-4 h-4 text-white" />}
                     </div>
                   </div>
@@ -1373,7 +1374,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Document Details</h2>
                 <p className="text-gray-600">Provide your identification document</p>
               </div>
-              
+
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">Document Type *</label>
@@ -1397,7 +1398,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         </span>
                         <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showDocumentTypeDropdown ? 'rotate-90' : ''}`} />
                       </button>
-                      
+
                       {showDocumentTypeDropdown && (
                         <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                           <div className="p-3 border-b border-gray-100">
@@ -1423,9 +1424,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                     setShowDocumentTypeDropdown(false);
                                     setDocumentTypeSearchQuery('');
                                   }}
-                                  className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                    formData.documentType === docType.doc_type_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                  }`}
+                                  className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.documentType === docType.doc_type_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                    }`}
                                 >
                                   {docType.doc_type_name}
                                 </div>
@@ -1475,55 +1475,54 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Current Address</h2>
                 <p className="text-gray-600">Where do you currently reside?</p>
               </div>
-              
+
               <div className="space-y-4">
-                <input 
-                  type="text" 
-                  placeholder="House Number / Building Name" 
-                  value={formData.houseNumber} 
-                  onChange={(e) => handleInputChange('houseNumber', e.target.value)} 
-                  className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all" 
+                <input
+                  type="text"
+                  placeholder="House Number / Building Name"
+                  value={formData.houseNumber}
+                  onChange={(e) => handleInputChange('houseNumber', e.target.value)}
+                  className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all"
                 />
-                <input 
-                  type="text" 
-                  placeholder="Street / Lane / Road" 
-                  value={formData.street} 
-                  onChange={(e) => handleInputChange('street', e.target.value)} 
-                  className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all" 
+                <input
+                  type="text"
+                  placeholder="Street / Lane / Road"
+                  value={formData.street}
+                  onChange={(e) => handleInputChange('street', e.target.value)}
+                  className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all"
                 />
                 <div className="grid grid-cols-2 gap-4">
-                  <input 
-                    type="text" 
-                    placeholder="City / Town" 
-                    value={formData.city} 
-                    onChange={(e) => handleInputChange('city', e.target.value)} 
-                    className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all" 
+                  <input
+                    type="text"
+                    placeholder="City / Town"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all"
                   />
-                  <input 
-                    type="text" 
-                    placeholder="Post Office" 
-                    value={formData.postOffice} 
-                    onChange={(e) => handleInputChange('postOffice', e.target.value)} 
-                    className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all" 
+                  <input
+                    type="text"
+                    placeholder="Post Office"
+                    value={formData.postOffice}
+                    onChange={(e) => handleInputChange('postOffice', e.target.value)}
+                    className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <input 
-                      type="text" 
-                      placeholder="PIN Code" 
-                      value={formData.pinCode} 
-                      onChange={(e) => handleInputChange('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))} 
+                    <input
+                      type="text"
+                      placeholder="PIN Code"
+                      value={formData.pinCode}
+                      onChange={(e) => handleInputChange('pinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                       onKeyPress={(e) => {
                         if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'Enter') {
                           e.preventDefault();
                         }
                       }}
-                      className={`px-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${
-                        validationErrors.pinCode 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-100' 
-                          : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
-                      }`}
+                      className={`px-4 py-4 text-base border-2 rounded-xl focus:outline-none focus:ring-4 transition-all ${validationErrors.pinCode
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                        : 'border-gray-200 focus:border-orange-500 focus:ring-orange-100'
+                        }`}
                     />
                     {validationErrors.pinCode && (
                       <p className="text-sm text-red-500 mt-1 font-medium">
@@ -1551,7 +1550,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                           </span>
                           <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showStateDropdown ? 'rotate-90' : ''}`} />
                         </button>
-                        
+
                         {showStateDropdown && (
                           <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                             <div className="p-3 border-b border-gray-100">
@@ -1578,9 +1577,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                       setShowStateDropdown(false);
                                       setStateSearchQuery('');
                                     }}
-                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                      formData.state === state.state_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                    }`}
+                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.state === state.state_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                      }`}
                                   >
                                     {state.state_name} {state.is_territory ? '(UT)' : ''}
                                   </div>
@@ -1621,7 +1619,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                           </span>
                           <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showDistrictDropdown ? 'rotate-90' : ''}`} />
                         </button>
-                        
+
                         {showDistrictDropdown && formData.state && (
                           <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                             <div className="p-3 border-b border-gray-100">
@@ -1648,9 +1646,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                       setShowDistrictDropdown(false);
                                       setDistrictSearchQuery('');
                                     }}
-                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                      formData.district === district.district_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                    }`}
+                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.district === district.district_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                      }`}
                                   >
                                     {district.district_name}
                                   </div>
@@ -1689,7 +1686,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                           </span>
                           <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showPoliceStationDropdown ? 'rotate-90' : ''}`} />
                         </button>
-                        
+
                         {showPoliceStationDropdown && formData.district && (
                           <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                             <div className="p-3 border-b border-gray-100">
@@ -1715,9 +1712,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                       setShowPoliceStationDropdown(false);
                                       setPoliceStationSearchQuery('');
                                     }}
-                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                      formData.policeStation === ps.ps_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                    }`}
+                                    className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.policeStation === ps.ps_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                      }`}
                                   >
                                     {ps.ps_name}
                                   </div>
@@ -1745,7 +1741,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Permanent Address</h2>
                 <p className="text-gray-600">Your official residential address</p>
               </div>
-              
+
               <label className="flex items-center gap-4 p-5 bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-2xl cursor-pointer hover:shadow-lg transition-all">
                 <input
                   type="checkbox"
@@ -1783,7 +1779,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Professional Details</h2>
                 <p className="text-gray-600">Tell us about your experience</p>
               </div>
-              
+
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">Years of Experience *</label>
@@ -1818,7 +1814,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         </span>
                         <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showLanguageDropdown ? 'rotate-90' : ''}`} />
                       </button>
-                      
+
                       {showLanguageDropdown && (
                         <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                           <div className="p-3 border-b border-gray-100">
@@ -1844,9 +1840,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                     setShowLanguageDropdown(false);
                                     setLanguageSearchQuery('');
                                   }}
-                                  className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                    formData.primaryLanguage === lang.language_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                  }`}
+                                  className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.primaryLanguage === lang.language_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                    }`}
                                 >
                                   {lang.language_name}
                                 </div>
@@ -1876,7 +1871,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Temple Association</h2>
                 <p className="text-gray-600">Are you associated with any temple?</p>
               </div>
-              
+
               <label className="flex items-center gap-4 p-5 bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 rounded-2xl cursor-pointer hover:shadow-lg transition-all">
                 <input
                   type="checkbox"
@@ -1918,7 +1913,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                             </span>
                             <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showTempleDropdown ? 'rotate-90' : ''}`} />
                           </button>
-                          
+
                           {showTempleDropdown && formData.state && (
                             <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-xl">
                               <div className="p-3 border-b border-gray-100">
@@ -1944,9 +1939,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                                         setShowTempleDropdown(false);
                                         setTempleSearchQuery('');
                                       }}
-                                      className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${
-                                        formData.templeName === temple.temple_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
-                                      }`}
+                                      className={`px-4 py-3 cursor-pointer hover:bg-orange-50 transition-colors ${formData.templeName === temple.temple_name ? 'bg-orange-100 text-orange-700 font-semibold' : 'text-gray-700'
+                                        }`}
                                     >
                                       {temple.temple_name}
                                     </div>
@@ -1962,26 +1956,26 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         </div>
                       </div>
 
-                      <input 
-                        type="text" 
-                        value={formData.managingAuthority || ''} 
-                        onChange={(e) => handleInputChange('managingAuthority', e.target.value)} 
-                        placeholder="Managing Authority / Trust" 
-                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" 
+                      <input
+                        type="text"
+                        value={formData.managingAuthority || ''}
+                        onChange={(e) => handleInputChange('managingAuthority', e.target.value)}
+                        placeholder="Managing Authority / Trust"
+                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
                       />
-                      <input 
-                        type="text" 
-                        value={formData.templeAddress || ''} 
-                        onChange={(e) => handleInputChange('templeAddress', e.target.value)} 
-                        placeholder="Temple Address" 
-                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" 
+                      <input
+                        type="text"
+                        value={formData.templeAddress || ''}
+                        onChange={(e) => handleInputChange('templeAddress', e.target.value)}
+                        placeholder="Temple Address"
+                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
                       />
-                      <input 
-                        type="tel" 
-                        value={formData.templeContactNumber || ''} 
-                        onChange={(e) => handleInputChange('templeContactNumber', e.target.value.replace(/\D/g, '').slice(0, 10))} 
-                        placeholder="Temple Contact Number" 
-                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" 
+                      <input
+                        type="tel"
+                        value={formData.templeContactNumber || ''}
+                        onChange={(e) => handleInputChange('templeContactNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="Temple Contact Number"
+                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
                       />
                       <div className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer">
                         <span className="text-2xl mb-2 block">📄</span>
@@ -2005,7 +1999,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Preferred Pujas</h2>
                 <p className="text-gray-600 text-sm">Select the pujas you specialize in</p>
               </div>
-              
+
               {/* Search Box */}
               <div className="mb-4">
                 <div className="relative">
@@ -2019,25 +2013,23 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                   <Sparkles className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 </div>
               </div>
-              
+
               {/* Pujas Grid */}
               <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
                 {filteredPujaOptions.map((puja) => (
                   <div
                     key={puja.id}
                     onClick={() => togglePuja(puja.id)}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.01] ${
-                      formData.selectedPujas.includes(puja.id)
-                        ? 'border-orange-500 bg-orange-50 shadow-md'
-                        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                    }`}
+                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.01] ${formData.selectedPujas.includes(puja.id)
+                      ? 'border-orange-500 bg-orange-50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                        formData.selectedPujas.includes(puja.id)
-                          ? 'border-orange-600 bg-orange-600'
-                          : 'border-gray-300'
-                      }`}>
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${formData.selectedPujas.includes(puja.id)
+                        ? 'border-orange-600 bg-orange-600'
+                        : 'border-gray-300'
+                        }`}>
                         {formData.selectedPujas.includes(puja.id) && <Check className="w-3 h-3 text-white" />}
                       </div>
                       <span className="text-lg">{puja.emoji}</span>
@@ -2052,7 +2044,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                     </div>
                   </div>
                 ))}
-                
+
                 {filteredPujaOptions.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
                     <Sparkles className="w-12 h-12 text-gray-300 mx-auto mb-2" />
@@ -2098,7 +2090,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 if (!isValid) {
                   return; // Don't proceed if validation fails
                 }
-                
+
                 if (currentStep === 2) {
                   // Handle Step 2 completion with API call
                   const success = await handleStep2Complete();
@@ -2110,11 +2102,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 }
               }}
               disabled={!canProceed() || loadingRegistration}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${
-                canProceed() && !loadingRegistration
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-xl hover:shadow-orange-200 hover:scale-[1.02]'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${canProceed() && !loadingRegistration
+                ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-xl hover:shadow-orange-200 hover:scale-[1.02]'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
             >
               {loadingRegistration ? (
                 <>
@@ -2132,11 +2123,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             <button
               onClick={handleSubmit}
               disabled={!canProceed()}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${
-                canProceed()
-                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-xl hover:shadow-green-200 hover:scale-[1.02]'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              }`}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${canProceed()
+                ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-xl hover:shadow-green-200 hover:scale-[1.02]'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
             >
               <Check className="w-5 h-5" />
               Submit Registration

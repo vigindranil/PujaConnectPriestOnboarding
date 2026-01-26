@@ -24,7 +24,8 @@ export const API_CONFIG = {
       GET_DOCUMENT_TYPES: '/master/get_all_doc_type',
     },
     PRIEST: {
-      REGISTER: '/priests/register',
+      REGISTER: '/authority/register_authority_user',
+      SAVE_PROFILE: '/authority/save_authority_user_profile', // Add this line
       GET_ALL: '/priests/getAll',
       UPDATE: '/priests/update',
       DELETE: '/priests/delete',
