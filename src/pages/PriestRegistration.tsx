@@ -62,21 +62,21 @@ export const PriestRegistration: React.FC = () => {
     try {
       console.log('Priest Registration Data:', formData);
       console.log('Additional Data:', additionalData);
-      
+
       // Get IDs for the selected values
       const selectedState = additionalData.states.find(s => s.state_name === formData.state);
       const selectedDistrict = additionalData.districts.find(d => d.district_name === formData.district);
       const selectedPS = additionalData.policeStations.find(ps => ps.ps_name === formData.policeStation);
-      
+
       // For permanent address, use the same if permanentSameAsPresent is true
-      const permanentState = formData.permanentSameAsPresent 
-        ? selectedState 
+      const permanentState = formData.permanentSameAsPresent
+        ? selectedState
         : additionalData.states.find(s => s.state_name === formData.permanentState);
-      const permanentDistrict = formData.permanentSameAsPresent 
-        ? selectedDistrict 
+      const permanentDistrict = formData.permanentSameAsPresent
+        ? selectedDistrict
         : additionalData.districts.find(d => d.district_name === formData.permanentDistrict);
-      const permanentPS = formData.permanentSameAsPresent 
-        ? selectedPS 
+      const permanentPS = formData.permanentSameAsPresent
+        ? selectedPS
         : additionalData.policeStations.find(ps => ps.ps_name === formData.permanentPoliceStation);
 
       // Prepare profile data according to the API structure
@@ -97,32 +97,32 @@ export const PriestRegistration: React.FC = () => {
         present_district_name: formData.district,
         present_ps_id: selectedPS?.ps_id || 0,
         present_ps_name: formData.policeStation,
-        permanent_house_plot_no: formData.permanentSameAsPresent 
-          ? formData.houseNumber 
+        permanent_house_plot_no: formData.permanentSameAsPresent
+          ? formData.houseNumber
           : (formData.permanentHouseNumber || ''),
-        permanent_street_locality: formData.permanentSameAsPresent 
-          ? formData.street 
+        permanent_street_locality: formData.permanentSameAsPresent
+          ? formData.street
           : (formData.permanentStreet || ''),
-        permanent_city_town_village: formData.permanentSameAsPresent 
-          ? formData.city 
+        permanent_city_town_village: formData.permanentSameAsPresent
+          ? formData.city
           : (formData.permanentCity || ''),
-        permanent_post_office: formData.permanentSameAsPresent 
-          ? formData.postOffice 
+        permanent_post_office: formData.permanentSameAsPresent
+          ? formData.postOffice
           : (formData.permanentPostOffice || ''),
-        permanent_pin_code: formData.permanentSameAsPresent 
-          ? formData.pinCode 
+        permanent_pin_code: formData.permanentSameAsPresent
+          ? formData.pinCode
           : (formData.permanentPinCode || ''),
         permanent_state_id: permanentState?.state_id || 0,
-        permanent_state_name: formData.permanentSameAsPresent 
-          ? formData.state 
+        permanent_state_name: formData.permanentSameAsPresent
+          ? formData.state
           : (formData.permanentState || ''),
         permanent_district_id: permanentDistrict?.district_id || 0,
-        permanent_district_name: formData.permanentSameAsPresent 
-          ? formData.district 
+        permanent_district_name: formData.permanentSameAsPresent
+          ? formData.district
           : (formData.permanentDistrict || ''),
         permanent_ps_id: permanentPS?.ps_id || 0,
-        permanent_ps_name: formData.permanentSameAsPresent 
-          ? formData.policeStation 
+        permanent_ps_name: formData.permanentSameAsPresent
+          ? formData.policeStation
           : (formData.permanentPoliceStation || ''),
         entry_user_id: 1
       };
@@ -132,7 +132,6 @@ export const PriestRegistration: React.FC = () => {
       const response = await authService.savePriestProfile(profileData);
 
       if (response.status === 0) {
-        alert('Priest profile saved successfully!');
         navigate('/dashboard');
       } else {
         alert(`Failed to save priest profile: ${response.message}`);
@@ -149,7 +148,7 @@ export const PriestRegistration: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <PriestRegistrationStepper 
+      <PriestRegistrationStepper
         onComplete={handleRegistrationComplete}
         onCancel={handleCancel}
       />
