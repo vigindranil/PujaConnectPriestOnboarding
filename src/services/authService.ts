@@ -1,6 +1,6 @@
 // API Configuration and Token Management Service
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api';
 const AUTH_HEADER = import.meta.env.VITE_AUTH_HEADER || 'Basic YURtaW4jVG9rZW4kR2VOYVJhVGUyNjphZG1pbkAxMjM=';
 const TOKEN_STORAGE_KEY = import.meta.env.VITE_TOKEN_STORAGE_KEY || 'puja_connect_auth_token';
 
@@ -289,14 +289,37 @@ class AuthService {
   }
 
   /**
+   * Helper to get current logged-in user ID from localStorage
+   */
+  private getCurrentUserId(): number {
+    const stored = localStorage.getItem('puja_connect_user');
+    if (stored) {
+      try {
+        const userData = JSON.parse(stored);
+        return userData.user_id ? Number(userData.user_id) : 1;
+      } catch (error) {
+        console.error('Error parsing user data for ID:', error);
+      }
+    }
+    return 1; // Default to 1 (Admin/System) if no user found
+  }
+
+  /**
    * Register Priest
    */
   async registerPriest(priestData: PriestRegistrationData): Promise<PriestRegistrationResponse> {
     try {
       const token = await this.getValidToken();
+       // Get the actual logged-in user ID
+      const currentUserId = this.getCurrentUserId();
+
+      const finalPriestData = {
+        ...priestData,
+        entry_user_id: currentUserId
+      };
       
       // Prepare encrypted data
-      const encData = JSON.stringify(priestData);
+      const encData = JSON.stringify(finalPriestData);
 
       const response = await fetch(`${API_BASE_URL}/authority/register_authority_user`, {
         method: 'POST',
@@ -333,40 +356,49 @@ class AuthService {
  * Save Priest Profile
  */
 async savePriestProfile(profileData: any): Promise<any> {
-  try {
-    const token = await this.getValidToken();
-    
-    // Prepare encrypted data
-    const encData = JSON.stringify(profileData);
+    try {
+      const token = await this.getValidToken();
+      
+      // Get the actual logged-in user ID
+      const currentUserId = this.getCurrentUserId();
 
-    const response = await fetch(`${API_BASE_URL}/authority/save_authority_user_profile`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'accept': '*/*',
-      },
-      body: JSON.stringify({
-        enc_data: encData,
-      }),
-    });
+      // Add/Overwrite entry_user_id
+      const finalProfileData = {
+        ...profileData,
+        entry_user_id: currentUserId
+      };
+      
+      // Prepare encrypted data
+      const encData = JSON.stringify(finalProfileData);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const response = await fetch(`${API_BASE_URL}/authority/save_authority_user_profile`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'accept': '*/*',
+        },
+        body: JSON.stringify({
+          enc_data: encData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: PriestRegistrationResponse = await response.json();
+
+      if (data.status === 0) {
+        return data;
+      } else {
+        throw new Error(data.message || 'Failed to save priest profile');
+      }
+    } catch (error) {
+      console.error('Error saving priest profile:', error);
+      throw error;
     }
-
-    const data: PriestRegistrationResponse = await response.json();
-
-    if (data.status === 0) {
-      return data;
-    } else {
-      throw new Error(data.message || 'Failed to save priest profile');
-    }
-  } catch (error) {
-    console.error('Error saving priest profile:', error);
-    throw error;
   }
-}
 }
 
 // Export singleton instance

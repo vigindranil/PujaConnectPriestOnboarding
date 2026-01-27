@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Flame, LogOut, Plus, Search, Eye, Edit2, Trash2, X, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import type { UserData } from '../services/authService';
+import { getAgentDashboard, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
+
 
 interface RegisteredPriest {
   id: number;
@@ -22,6 +24,8 @@ interface RegisteredPriest {
 }
 
 interface AgentStats {
+  todaySurvey: number;
+  totalSurvey: number;
   totalRegistered: number;
   approved: number;
   pending: number;
@@ -34,6 +38,8 @@ export const Dashboard: React.FC = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [priests, setPriests] = useState<RegisteredPriest[]>([]);
   const [stats, setStats] = useState<AgentStats>({
+    todaySurvey: 0,
+    totalSurvey: 0,
     totalRegistered: 0,
     approved: 0,
     pending: 0,
@@ -46,6 +52,8 @@ export const Dashboard: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPriest, setSelectedPriest] = useState<RegisteredPriest | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('puja_connect_user');
@@ -58,7 +66,40 @@ export const Dashboard: React.FC = () => {
       }
     }
     loadMockPriestData();
+    loadDashboardStats();
   }, []);
+
+  const loadDashboardStats = async () => {
+    setIsLoadingStats(true);
+    setStatsError(null);
+
+    try {
+      const user = getUserData();
+      const token = getAuthToken();
+
+      if (!user || !token) {
+        throw new Error('User not authenticated');
+      }
+
+      const dashboardData: DashboardStats = await getAgentDashboard(user.user_id, token);
+
+      // Update stats with API data
+      setStats(prevStats => ({
+        ...prevStats,
+        todaySurvey: dashboardData.today_survey_qty,
+        totalSurvey: dashboardData.total_survey_qty,
+        approved: dashboardData.total_approved_qty,
+        pending: dashboardData.total_pending_qty,
+        rejected: dashboardData.total_rejected_qty,
+        commissionEarned: dashboardData.total_approved_qty * 5000,
+      }));
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+      setStatsError(error instanceof Error ? error.message : 'Failed to load dashboard statistics');
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const loadMockPriestData = useCallback(() => {
     const mockPriests: RegisteredPriest[] = [
@@ -130,19 +171,12 @@ export const Dashboard: React.FC = () => {
     ];
 
     setPriests(mockPriests);
-    updateStats(mockPriests);
+    // Set totalRegistered from mock data
+    setStats(prevStats => ({
+      ...prevStats,
+      totalRegistered: mockPriests.length,
+    }));
   }, []);
-
-  const updateStats = (priestList: RegisteredPriest[]) => {
-    const approved = priestList.filter(p => p.status === 'approved').length;
-    setStats({
-      totalRegistered: priestList.length,
-      approved,
-      pending: priestList.filter(p => p.status === 'pending').length,
-      rejected: priestList.filter(p => p.status === 'rejected').length,
-      commissionEarned: approved * 5000,
-    });
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('puja_connect_user');
@@ -158,29 +192,44 @@ export const Dashboard: React.FC = () => {
     };
     const updatedPriests = [...priests, priest];
     setPriests(updatedPriests);
-    updateStats(updatedPriests);
+    setStats(prevStats => ({
+      ...prevStats,
+      totalRegistered: updatedPriests.length,
+    }));
     setShowAddModal(false);
+    // Reload stats from API after adding priest
+    loadDashboardStats();
   };
 
   const handleEditPriest = (updatedPriest: RegisteredPriest) => {
     const updatedPriests = priests.map(p => p.id === updatedPriest.id ? updatedPriest : p);
     setPriests(updatedPriests);
-    updateStats(updatedPriests);
+    setStats(prevStats => ({
+      ...prevStats,
+      totalRegistered: updatedPriests.length,
+    }));
     setShowViewModal(false);
     setIsEditMode(false);
+    // Reload stats from API after editing priest
+    loadDashboardStats();
   };
 
   const handleDeletePriest = (id: number) => {
     const updatedPriests = priests.filter(p => p.id !== id);
     setPriests(updatedPriests);
-    updateStats(updatedPriests);
+    setStats(prevStats => ({
+      ...prevStats,
+      totalRegistered: updatedPriests.length,
+    }));
     setShowViewModal(false);
+    // Reload stats from API after deleting priest
+    loadDashboardStats();
   };
 
   const filteredPriests = priests.filter(priest => {
     const matchesSearch = priest.priestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         priest.priestPhone.includes(searchTerm) ||
-                         priest.priestEmail.toLowerCase().includes(searchTerm.toLowerCase());
+      priest.priestPhone.includes(searchTerm) ||
+      priest.priestEmail.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || priest.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -269,12 +318,59 @@ export const Dashboard: React.FC = () => {
                   ✨ Ready to expand your network? Register new priests and track your commission earnings!
                 </p>
               </div>
+              {statsError && (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4">
+                  <p className="text-red-800 text-sm font-medium">
+                    ⚠️ {statsError}
+                  </p>
+                  <button
+                    onClick={loadDashboardStats}
+                    className="mt-2 text-red-600 hover:text-red-700 text-sm font-semibold underline"
+                  >
+                    Retry loading statistics
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-8 sm:mb-12">
+          {/* Today's Survey */}
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Today's Survey</p>
+                <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-2">
+                  {isLoadingStats ? '...' : stats.todaySurvey}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
+                📋
+              </div>
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-purple-200/20 to-pink-300/20 rounded-full blur-xl"></div>
+          </div>
+
+          {/* Total Survey */}
+          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Total Survey</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">
+                  {isLoadingStats ? '...' : stats.totalSurvey}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
+                📊
+              </div>
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-blue-200/20 to-indigo-300/20 rounded-full blur-xl"></div>
+          </div>
+
           {/* Total Registered */}
           <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -296,7 +392,9 @@ export const Dashboard: React.FC = () => {
             <div className="relative z-10 flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Approved</p>
-                <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-2">{stats.approved}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-2">
+                  {isLoadingStats ? '...' : stats.approved}
+                </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
                 ✅
@@ -311,7 +409,9 @@ export const Dashboard: React.FC = () => {
             <div className="relative z-10 flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Pending</p>
-                <p className="text-2xl sm:text-3xl font-bold text-yellow-600 mt-2">{stats.pending}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-yellow-600 mt-2">
+                  {isLoadingStats ? '...' : stats.pending}
+                </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
                 ⏳
@@ -326,7 +426,9 @@ export const Dashboard: React.FC = () => {
             <div className="relative z-10 flex items-center justify-between">
               <div>
                 <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Rejected</p>
-                <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-2">{stats.rejected}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-2">
+                  {isLoadingStats ? '...' : stats.rejected}
+                </p>
               </div>
               <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
                 ❌
@@ -352,7 +454,7 @@ export const Dashboard: React.FC = () => {
               />
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
             </div>
-            
+
             <div className="relative group">
               <select
                 value={filterStatus}
@@ -366,7 +468,7 @@ export const Dashboard: React.FC = () => {
               </select>
               <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
             </div>
-            
+
             <button
               onClick={() => navigate('/priest-registration')}
               className="group flex items-center gap-3 bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 sm:px-8 py-4 rounded-xl hover:from-orange-600 hover:to-red-700 transition-all duration-300 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5 font-semibold text-lg whitespace-nowrap w-full sm:w-auto justify-center"
@@ -380,24 +482,24 @@ export const Dashboard: React.FC = () => {
         {/* Priests Table */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden border border-white/20 hover:shadow-2xl transition-all duration-300">
           <div className="min-w-full overflow-x-auto">
-            <table className="w-full text-sm sm:text-base">
-              <thead className="bg-gradient-to-r from-orange-500 via-red-500 to-amber-500 text-white relative">
-                <tr className="relative z-10 before:content-[''] before:absolute before:inset-0 before:bg-gradient-to-br before:from-black/10 before:to-transparent before:pointer-events-none">
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-left text-sm sm:text-base font-bold tracking-wide relative z-20">Priest Name</th>
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-left text-sm sm:text-base font-bold tracking-wide hidden sm:table-cell relative z-20">Contact</th>
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-left text-sm sm:text-base font-bold tracking-wide hidden md:table-cell relative z-20">Experience</th>
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-left text-sm sm:text-base font-bold tracking-wide hidden lg:table-cell relative z-20">Location</th>
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-left text-sm sm:text-base font-bold tracking-wide relative z-20">Status</th>
-                  <th className="px-4 sm:px-6 py-4 sm:py-5 text-center text-sm sm:text-base font-bold tracking-wide relative z-20">Actions</th>
+            <table className="w-full text-sm sm:text-base border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-r from-orange-500 via-red-500 to-amber-500 text-white">
+                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide whitespace-nowrap align-middle">Priest Name</th>
+                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden sm:table-cell whitespace-nowrap align-middle">Contact</th>
+                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden md:table-cell whitespace-nowrap align-middle">Experience</th>
+                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden lg:table-cell whitespace-nowrap align-middle">Location</th>
+                  <th className="px-4 sm:px-6 py-5 text-center font-bold tracking-wide whitespace-nowrap align-middle">Status</th>
+                  <th className="px-4 sm:px-6 py-5 text-center font-bold tracking-wide whitespace-nowrap align-middle">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPriests.length > 0 ? (
                   filteredPriests.map((priest) => (
                     <tr key={priest.id} className="group hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
-                      <td className="px-4 sm:px-6 py-4 sm:py-5">
+                      <td className="px-4 sm:px-6 py-4 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-lg">
+                          <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-lg">
                             {priest.priestName.charAt(0)}
                           </div>
                           <div>
@@ -411,30 +513,29 @@ export const Dashboard: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 sm:py-5 hidden sm:table-cell">
+                      <td className="px-4 sm:px-6 py-4 hidden sm:table-cell align-middle whitespace-nowrap">
                         <div className="text-sm">
                           <p className="font-semibold text-slate-800">{priest.priestPhone}</p>
                           <p className="text-slate-500 text-xs">{priest.priestEmail}</p>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 sm:py-5 hidden md:table-cell">
+                      <td className="px-4 sm:px-6 py-4 hidden md:table-cell align-middle whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-3 py-2 rounded-xl text-sm font-bold border border-blue-200">
                           <span>{priest.experience}</span>
                           <span className="text-xs">yrs</span>
                         </span>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 sm:py-5 hidden lg:table-cell text-sm text-slate-600 font-medium">
+                      <td className="px-4 sm:px-6 py-4 hidden lg:table-cell text-sm text-slate-600 font-medium align-middle whitespace-nowrap">
                         {priest.location}
                       </td>
-                      <td className="px-4 sm:px-6 py-4 sm:py-5">
+                      <td className="px-4 sm:px-6 py-4 align-middle text-center whitespace-nowrap">
                         <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all duration-200 ${getStatusColor(priest.status)}`}>
                           {getStatusIcon(priest.status)}
                           <span className="hidden sm:inline capitalize">{priest.status}</span>
-                          <span className="sm:hidden uppercase">{priest.status.charAt(0)}</span>
                         </span>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 sm:py-5">
-                        <div className="flex justify-center gap-2">
+                      <td className="px-4 sm:px-6 py-4 align-middle">
+                        <div className="flex justify-center items-center gap-2">
                           <button
                             onClick={() => {
                               setSelectedPriest(priest);
@@ -474,7 +575,7 @@ export const Dashboard: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center">
+                    <td colSpan={6} className="px-6 py-16 text-center align-middle">
                       <div className="flex flex-col items-center gap-4">
                         <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
                           <span className="text-4xl">🕉️</span>
@@ -498,6 +599,7 @@ export const Dashboard: React.FC = () => {
             </table>
           </div>
         </div>
+
       </main>
 
       {/* Add Priest Modal */}

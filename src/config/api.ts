@@ -5,7 +5,7 @@
 
 export const API_CONFIG = {
   // Base URL from environment variable
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api',
   
   // API Endpoints
   ENDPOINTS: {

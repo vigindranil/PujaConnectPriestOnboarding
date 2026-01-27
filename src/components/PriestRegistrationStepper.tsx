@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Check, Menu, ArrowLeft, Phone, Mail, User, Calendar, MapPin, Briefcase, Building2, Sparkles } from 'lucide-react';
 import { API_CONFIG, getApiUrl } from '../config/api';
 import { authService } from '../services/authService';
+import { priestService } from '../services/priestService';
 
 interface PriestRegistrationFormData {
   registrationMode: 'self' | 'survey' | '';
@@ -43,8 +44,20 @@ interface PriestRegistrationFormData {
   managingAuthority?: string;
   templeAddress?: string;
   templeContactNumber?: string;
+  latitude?: string;
+  longitude?: string;
   authorizationLetterURL?: string;
   selectedPujas: string[];
+  pujaPrices: { [key: string]: { withSamagri: string; withoutSamagri: string } };
+}
+
+
+interface ApiPujaType {
+  puja_type_id: number;
+  puja_type_name: string;
+  puja_duration: number;
+  puja_with_samagri_amount: string;
+  puja_without_samagri_amount: string;
 }
 
 interface PriestRegistrationStepperProps {
@@ -91,6 +104,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const [policeStationSearchQuery, setPoliceStationSearchQuery] = useState('');
   const [documentTypeSearchQuery, setDocumentTypeSearchQuery] = useState('');
   const [templeSearchQuery, setTempleSearchQuery] = useState('');
+  const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [pujas, setPujas] = useState<ApiPujaType[]>([]);
+  const [loadingPujas, setLoadingPujas] = useState(false);
 
   // Dropdown visibility states
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -102,7 +119,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
   // Validation states
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [registeredUserId, setRegisteredUserId] = useState<number | null>(null);
+  const [registeredUserId, setRegisteredUserId] = useState<number | null>(101); // For testing, set a default user ID
 
   // Validation functions
   const validateField = (field: string, value: string | boolean | string[] | undefined): string => {
@@ -180,10 +197,10 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         }
         return '';
       case 'templeContactNumber':
-        if (formData.associatedWithTemple) {
-          if (!stringValue || stringValue.length !== 10) return 'Temple contact must be exactly 10 digits';
-          if (!/^[0-9]+$/.test(stringValue)) return 'Temple contact can only contain digits';
-        }
+        //   if (formData.associatedWithTemple) {
+        //     if (!stringValue || stringValue.length !== 10) return 'Temple contact must be exactly 10 digits';
+        //     if (!/^[0-9]+$/.test(stringValue)) return 'Temple contact can only contain digits';
+        //   }
         return '';
       default:
         return '';
@@ -258,12 +275,12 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           const templeNameError = validateField('templeName', formData.templeName);
           const managingAuthorityError = validateField('managingAuthority', formData.managingAuthority);
           const templeAddressError = validateField('templeAddress', formData.templeAddress);
-          const templeContactError = validateField('templeContactNumber', formData.templeContactNumber);
+          // const templeContactError = validateField('templeContactNumber', formData.templeContactNumber);
 
           if (templeNameError) { errors.templeName = templeNameError; isValid = false; }
           if (managingAuthorityError) { errors.managingAuthority = managingAuthorityError; isValid = false; }
           if (templeAddressError) { errors.templeAddress = templeAddressError; isValid = false; }
-          if (templeContactError) { errors.templeContactNumber = templeContactError; isValid = false; }
+          // if (templeContactError) { errors.templeContactNumber = templeContactError; isValid = false; }
         }
         break;
 
@@ -282,6 +299,128 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     return isValid;
   };
 
+  const getPujaEmoji = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes('ganesh')) return '🐘';
+    if (lower.includes('lakshmi')) return '🪷';
+    if (lower.includes('durga')) return '🔱';
+    if (lower.includes('saraswati')) return '📚';
+    if (lower.includes('shiva') || lower.includes('rudra') || lower.includes('mrityunjaya')) return '🕉️';
+    if (lower.includes('hanuman')) return '🙏';
+    if (lower.includes('kali')) return '⚡';
+    if (lower.includes('vishnu') || lower.includes('satyanarayan')) return '🙌';
+    if (lower.includes('krishna')) return '🪈';
+    if (lower.includes('navratri') || lower.includes('navagraha')) return '🌟';
+    if (lower.includes('griha') || lower.includes('vastu') || lower.includes('bhumi')) return '🏠';
+    if (lower.includes('wedding') || lower.includes('vivah')) return '💒';
+    if (lower.includes('thread') || lower.includes('mundan')) return '✂️';
+    if (lower.includes('havan') || lower.includes('yagna')) return '🔥';
+    if (lower.includes('annaprashan') || lower.includes('naamkaran')) return '🍼';
+    return '✨';
+  };
+
+  // Map puja IDs to puja_type_id for API
+  const PUJA_TYPE_ID_MAP: { [key: string]: number } = {
+    'griha-pravesh': 1,
+    'ganesh': 2,
+    'lakshmi': 3,
+    'durga': 4,
+    'saraswati': 5,
+    'shiva': 6,
+    'hanuman': 7,
+    'kali': 8,
+    'vishnu': 9,
+    'krishna': 10,
+    'navratri': 11,
+    'satyanarayan': 12,
+    'wedding': 13,
+    'thread-ceremony': 14,
+    'havana': 15,
+    'annaprashan': 16,
+  };
+
+  // Map duration strings to numeric hours
+  const parseDuration = (duration: string): number => {
+    const match = duration.match(/(\d+(?:\.\d+)?)/);
+    if (!match) return 1;
+
+    if (duration.includes('min')) {
+      return parseFloat(match[0]) / 60; // Convert minutes to hours
+    }
+
+    if (duration.includes('-')) {
+      // For ranges like "2-3 hrs", take the average
+      const [min, max] = duration.split('-').map(s => parseFloat(s.match(/\d+/)?.[0] || '1'));
+      return (min + max) / 2;
+    }
+
+    return parseFloat(match[0]);
+  };
+
+
+  // Fetch current location using browser geolocation
+  // Improved Fetch Location function with permission handling
+  const fetchLocation = async () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    // Check if we can query permission status
+    if (navigator.permissions) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+
+        if (permissionStatus.state === 'denied') {
+          setLocationError(
+            'Location access is blocked. Please enable location permissions in your browser settings and try again.'
+          );
+          return;
+        }
+      } catch (err) {
+        // Permission API not fully supported, continue anyway
+        console.log('Permission query not supported, continuing...');
+      }
+    }
+
+    setFetchingLocation(true);
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude.toFixed(6);
+        const longitude = position.coords.longitude.toFixed(6);
+        handleInputChange('latitude', latitude);
+        handleInputChange('longitude', longitude);
+        setFetchingLocation(false);
+      },
+      (error) => {
+        let errorMessage = 'Unable to fetch location. ';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = '🚫 Location access denied. Please enable location permissions in your browser settings and click "Fetch Location" again.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = '📍 Location information is unavailable. Please check your device settings and try again.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = '⏱️ Location request timed out. Please try again.';
+            break;
+          default:
+            errorMessage = '❌ An unknown error occurred. Please try again.';
+            break;
+        }
+        setLocationError(errorMessage);
+        setFetchingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  };
+
   // Handle Step 2 completion and API call
   const handleStep2Complete = async () => {
     if (!formData.mobileNumber || !formData.otpVerified) {
@@ -297,23 +436,30 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         contact_no: formData.mobileNumber,
         alternate_contact_no: formData.alternateMobile || formData.mobileNumber,
         registration_mode: formData.registrationMode === 'self' ? 1 : 2,
-        user_type_id: 1,
+        user_type_id: 10, // Assuming 10 is the ID for Priest/Authority type
         email: formData.emailAddress || '',
-        entry_user_id: 1
+        entry_user_id: 0 // This will be overridden by authService with the actual logged-in user ID
       };
 
       const response = await authService.registerPriest(priestData);
 
       if (response.status === 0) {
-        // Parse the user_id from response data if available
+        // Parse the data string: "{\"authority_user_id\":101}"
         if (response.data) {
           try {
             const parsedData = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-            if (parsedData.user_id) {
-              setRegisteredUserId(parsedData.user_id);
+
+            // Check for authority_user_id specifically based on your API response
+            const newUserId = parsedData.authority_user_id;
+
+            if (newUserId) {
+              setRegisteredUserId(newUserId);
+              console.log("Registration Successful. ID set to:", newUserId);
+            } else {
+              console.warn("authority_user_id not found in response data", parsedData);
             }
           } catch (e) {
-            console.error('Error parsing user_id from response:', e);
+            console.error('Error parsing response data:', e);
           }
         }
         return true;
@@ -329,6 +475,274 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       setLoadingRegistration(false);
     }
   };
+
+  /**
+ * Handle Step 6 completion - Save address and location info
+ */
+  // const handleStep6Complete = async () => {
+  //   console.log('Starting Step 6 completion process...');
+  //   if (!registeredUserId) {
+  //     console.log("set register ID")
+  //     setRegistrationError('User ID not found. Please complete previous steps.');
+  //     return false;
+  //   }
+
+  //   // Validate required fields
+  //   if (!formData.state || !formData.district || !formData.policeStation) {
+  //     setRegistrationError('Please complete all required address fields.');
+  //     return false;
+  //   }
+
+  //   try {
+  //     setLoadingRegistration(true);
+  //     setRegistrationError('');
+
+  //     // Find the state_id, district_id, and ps_id for the selected names
+  //     const selectedState = states.find(s => s.state_name === formData.state);
+  //     const selectedDistrict = districts.find(d => d.district_name === formData.district);
+  //     const selectedPoliceStation = policeStations.find(ps => ps.ps_name === formData.policeStation);
+
+  //     if (!selectedState || !selectedDistrict || !selectedPoliceStation) {
+  //       setRegistrationError('Invalid address selection. Please verify your selections.');
+  //       return false;
+  //     }
+
+  //     // Prepare permanent address data
+  //     let permanentStateId = selectedState.state_id;
+  //     let permanentDistrictId = selectedDistrict.district_id;
+  //     let permanentPsId = selectedPoliceStation.ps_id;
+
+  //     // If permanent address is different, find those IDs
+  //     if (!formData.permanentSameAsPresent && formData.permanentState && formData.permanentDistrict && formData.permanentPoliceStation) {
+  //       const permanentState = states.find(s => s.state_name === formData.permanentState);
+  //       const permanentDistrict = districts.find(d => d.district_name === formData.permanentDistrict);
+  //       const permanentPs = policeStations.find(ps => ps.ps_name === formData.permanentPoliceStation);
+
+  //       if (permanentState) permanentStateId = permanentState.state_id;
+  //       if (permanentDistrict) permanentDistrictId = permanentDistrict.district_id;
+  //       if (permanentPs) permanentPsId = permanentPs.ps_id;
+  //     }
+
+  //     // Prepare address data for API
+  //     const addressData = {
+  //       priest_user_id: registeredUserId,
+  //       present_house_no: formData.houseNumber,
+  //       present_street_name: formData.street,
+  //       present_city_name: formData.city,
+  //       present_post_office: formData.postOffice,
+  //       present_pin_code: formData.pinCode,
+  //       present_state_id: selectedState.state_id,
+  //       present_district_id: selectedDistrict.district_id,
+  //       present_ps_id: selectedPoliceStation.ps_id,
+  //       priest_present_latitude: formData.latitude ? parseFloat(formData.latitude) : 0,
+  //       priest_present_longitude: formData.longitude ? parseFloat(formData.longitude) : 0,
+  //       permanent_house_no: formData.permanentSameAsPresent
+  //         ? formData.houseNumber
+  //         : (formData.permanentHouseNumber || ''),
+  //       permanent_street_name: formData.permanentSameAsPresent
+  //         ? formData.street
+  //         : (formData.permanentStreet || ''),
+  //       permanent_city_name: formData.permanentSameAsPresent
+  //         ? formData.city
+  //         : (formData.permanentCity || ''),
+  //       permanent_post_office: formData.permanentSameAsPresent
+  //         ? formData.postOffice
+  //         : (formData.permanentPostOffice || ''),
+  //       permanent_pin_code: formData.permanentSameAsPresent
+  //         ? formData.pinCode
+  //         : (formData.permanentPinCode || ''),
+  //       permanent_state_id: permanentStateId,
+  //       permanent_district_id: permanentDistrictId,
+  //       permanent_ps_id: permanentPsId,
+  //       entry_user_id: 1,
+  //     };
+
+  //     // Call the API
+  //     const response = await priestService.savePriestAddress(addressData);
+
+  //     if (response.status === 0) {
+  //       console.log('Address saved successfully:', response);
+  //       return true;
+  //     } else {
+  //       setRegistrationError(response.message || 'Failed to save address information');
+  //       return false;
+  //     }
+  //   } catch (error) {
+  //     console.error('Error saving address:', error);
+  //     setRegistrationError(error instanceof Error ? error.message : 'Failed to save address information');
+  //     return false;
+  //   } finally {
+  //     setLoadingRegistration(false);
+  //   }
+  // };
+
+
+  /**
+   * Handle Step 9 completion - Save Professional & Temple Info
+   */
+  const handleStep9Complete = async () => {
+    console.log('Starting Step 9 completion process...');
+
+    if (!registeredUserId) {
+      setRegistrationError('User ID not found. Please complete previous steps.');
+      return false;
+    }
+
+    try {
+      setLoadingRegistration(true);
+      setRegistrationError('');
+
+      // 1. Prepare Language Data
+      const selectedLangObj = languages.find(l => l.language_name === formData.primaryLanguage);
+
+      const languageInfo = [];
+      if (selectedLangObj) {
+        languageInfo.push({
+          language_id: selectedLangObj.language_id,
+          language_type_id: selectedLangObj.language_type_id
+        });
+      } else {
+        languageInfo.push({ language_id: 1, language_type_id: 1 });
+      }
+
+      // 2. Prepare Temple Data
+      let templeInfo = undefined;
+
+      if (formData.associatedWithTemple) {
+        const selectedTempleObj = temples.find(t => t.temple_name === formData.templeName);
+
+        templeInfo = {
+          temple_id: selectedTempleObj ? selectedTempleObj.temple_id : 0,
+          temple_name: formData.templeName || '',
+          temple_address: formData.templeAddress || '',
+          managing_authority_name: formData.managingAuthority || '',
+          remarks: formData.templeContactNumber || ''
+        };
+      }
+
+      // 3. Construct Final Payload
+      // REMOVED entry_user_id from here, it is now handled by the service
+      const payload = {
+        priest_user_id: registeredUserId,
+        professional_info: {
+          exp_year: parseInt(formData.yearsOfExperience) || 0,
+          remarks: "Registered via Web App"
+        },
+        language_info: languageInfo,
+        temple_info: templeInfo
+      };
+
+      // 4. Call API
+      const response = await priestService.savePriestProfessionalDetails(payload);
+
+      if (response.status === 0) {
+        console.log('Professional details saved successfully');
+        return true;
+      } else {
+        setRegistrationError(response.message || 'Failed to save professional details');
+        return false;
+      }
+
+    } catch (error) {
+      console.error('Error in Step 9 submission:', error);
+      setRegistrationError(error instanceof Error ? error.message : 'Submission failed');
+      return false;
+    } finally {
+      setLoadingRegistration(false);
+    }
+  };
+
+  /**
+   * Handle Step 10 completion - Save puja pricing information
+   */
+  const handleStep10Complete = async () => {
+    console.log('Starting Step 10 completion process...');
+
+    if (!registeredUserId) {
+      setRegistrationError('User ID not found. Please complete previous steps.');
+      return false;
+    }
+
+    if (formData.selectedPujas.length === 0) {
+      setRegistrationError('Please select at least one puja.');
+      return false;
+    }
+
+    // Check if all selected pujas have prices set
+    const incompletePujas = formData.selectedPujas.filter(pujaId => {
+      const prices = formData.pujaPrices[pujaId];
+      return !prices || !prices.withSamagri || !prices.withoutSamagri;
+    });
+
+    if (incompletePujas.length > 0) {
+      setRegistrationError('Please set prices for all selected pujas.');
+      return false;
+    }
+
+    try {
+      setLoadingRegistration(true);
+      setRegistrationError('');
+
+      // Get latitude and longitude
+      const latitude = formData.latitude ? parseFloat(formData.latitude) : 0;
+      const longitude = formData.longitude ? parseFloat(formData.longitude) : 0;
+
+      // Prepare puja data list
+      const pujaDataArray = formData.selectedPujas.map(pujaIdStr => {
+        const pujaId = parseInt(pujaIdStr);
+        const pujaObj = pujas.find(p => p.puja_type_id === pujaId);
+        const prices = formData.pujaPrices[pujaIdStr];
+
+        if (!pujaObj || !prices) return null;
+
+        return {
+          pujaTypeId: pujaObj.puja_type_id,
+          duration: pujaObj.puja_duration,
+          withoutSamagriAmount: parseFloat(prices.withoutSamagri.replace(/,/g, '')),
+          withSamagriAmount: parseFloat(prices.withSamagri.replace(/,/g, '')),
+        };
+      }).filter(Boolean);
+
+      if (pujaDataArray.length === 0) {
+        setRegistrationError('Invalid puja data. Please check your selections.');
+        return false;
+      }
+
+      // --- CHANGED LOGIC HERE ---
+      // Call the API (now returns single response object, not an array)
+      const response = await priestService.saveBatchPujaInfo(
+        registeredUserId,
+        pujaDataArray as Array<{
+          pujaTypeId: number;
+          duration: number;
+          withoutSamagriAmount: number;
+          withSamagriAmount: number;
+        }>,
+        latitude,
+        longitude
+      );
+
+      // Check single response status
+      if (response.status === 0) {
+        console.log('All pujas saved successfully:', response);
+        return true;
+      } else {
+        setRegistrationError(response.message || 'Failed to save puja information');
+        return false;
+      }
+      // --------------------------
+
+    } catch (error) {
+      console.error('Error saving puja information:', error);
+      setRegistrationError(error instanceof Error ? error.message : 'Failed to save puja information');
+      return false;
+    } finally {
+      setLoadingRegistration(false);
+    }
+  };
+
+
+
 
   const [formData, setFormData] = useState<PriestRegistrationFormData>({
     registrationMode: '',
@@ -353,9 +767,12 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     permanentSameAsPresent: true,
     yearsOfExperience: '',
     primaryLanguage: '',
+    latitude: '',
+    longitude: '',
     additionalLanguages: [],
     associatedWithTemple: false,
     selectedPujas: [],
+    pujaPrices: {},
   });
 
   // Fetch languages from API
@@ -598,6 +1015,39 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     fetchPoliceStations();
   }, [formData.district, districts]);
 
+  useEffect(() => {
+    const fetchPujaTypes = async () => {
+      setLoadingPujas(true);
+      try {
+        const token = await authService.getValidToken();
+        // Use getApiUrl wrapper or direct string if not configured in API_CONFIG yet
+        const url = getApiUrl('/master/get_all_puja_type');
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ enc_data: JSON.stringify({ login_user_id: 2 }) }),
+        });
+
+        const result = await response.json();
+        if (result.status === 0 && result.data) {
+          const parsedData = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+          setPujas(parsedData);
+        }
+      } catch (error) {
+        console.error('Error fetching puja types:', error);
+      } finally {
+        setLoadingPujas(false);
+      }
+    };
+
+    fetchPujaTypes();
+  }, []);
+
   // Fetch temples when state changes
   useEffect(() => {
     if (!formData.state) {
@@ -684,8 +1134,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   ];
 
   // Filter pujas based on search query
-  const filteredPujaOptions = pujaOptions.filter(puja =>
-    puja.name.toLowerCase().includes(pujaSearchQuery.toLowerCase())
+  const filteredPujaOptions = pujas.filter(puja =>
+    puja.puja_type_name.toLowerCase().includes(pujaSearchQuery.toLowerCase())
   );
 
   // Filter functions for all dropdowns
@@ -713,12 +1163,44 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     temple.temple_name.toLowerCase().includes(templeSearchQuery.toLowerCase())
   );
 
-  const togglePuja = (pujaId: string) => {
+  const togglePuja = (pujaId: number) => { // Changed type to number
+    const pujaIdStr = pujaId.toString();
+    setFormData(prev => {
+      const isSelected = prev.selectedPujas.includes(pujaIdStr);
+      const newSelectedPujas = isSelected
+        ? prev.selectedPujas.filter(p => p !== pujaIdStr)
+        : [...prev.selectedPujas, pujaIdStr];
+
+      // Pre-fill prices from API reference data when selecting
+      let newPujaPrices = { ...prev.pujaPrices };
+      if (!isSelected) {
+        const pujaData = pujas.find(p => p.puja_type_id === pujaId);
+        if (pujaData) {
+          newPujaPrices[pujaIdStr] = {
+            withSamagri: pujaData.puja_with_samagri_amount,
+            withoutSamagri: pujaData.puja_without_samagri_amount
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        selectedPujas: newSelectedPujas,
+        pujaPrices: newPujaPrices
+      };
+    });
+  };
+
+  const updatePujaPrice = (pujaId: string, priceType: 'withSamagri' | 'withoutSamagri', value: string) => {
     setFormData(prev => ({
       ...prev,
-      selectedPujas: prev.selectedPujas.includes(pujaId)
-        ? prev.selectedPujas.filter(p => p !== pujaId)
-        : [...prev.selectedPujas, pujaId],
+      pujaPrices: {
+        ...prev.pujaPrices,
+        [pujaId]: {
+          ...prev.pujaPrices[pujaId],
+          [priceType]: value,
+        },
+      },
     }));
   };
 
@@ -744,7 +1226,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         return formData.yearsOfExperience && formData.primaryLanguage;
       case 9:
         if (!formData.associatedWithTemple) return true;
-        return formData.templeName && formData.managingAuthority && formData.templeAddress && formData.templeContactNumber;
+        return formData.templeName && formData.managingAuthority && formData.templeAddress;
       case 10:
         return formData.selectedPujas.length > 0;
       default:
@@ -1466,6 +1948,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           )}
 
           {/* Step 6: Address */}
+
           {currentStep === 6 && (
             <div className="space-y-6 animate-fadeIn">
               <div className="text-center mb-8">
@@ -1730,6 +2213,111 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                     )}
                   </div>
                 </div>
+
+                {/* Location Section - Improved Design */}
+                {/* Location Section - With Better Permission Handling */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <MapPin className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 text-base">📍 Current Location</h3>
+                        <p className="text-xs text-gray-600 mt-0.5">Fetch your precise coordinates</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchLocation}
+                      disabled={fetchingLocation}
+                      className={`px-3 py-2 rounded-lg font-semibold text-xs transition-all whitespace-nowrap ${fetchingLocation
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                        }`}
+                    >
+                      {fetchingLocation ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Fetching...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Fetch Location</span>
+                        </div>
+                      )}
+                    </button>
+                  </div>
+
+                  {locationError && (
+                    <div className="bg-red-50 border border-red-300 rounded-lg p-3 mb-3">
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-white text-xs font-bold">!</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-red-700 text-xs font-medium leading-relaxed">{locationError}</p>
+                          {locationError.includes('denied') && (
+                            <details className="mt-2">
+                              <summary className="text-xs text-blue-600 cursor-pointer hover:text-blue-700 font-semibold">
+                                How to enable location access?
+                              </summary>
+                              <div className="mt-2 text-xs text-gray-600 space-y-1 pl-3">
+                                <p className="font-semibold">Chrome/Edge:</p>
+                                <p>• Click the 🔒 icon in address bar → Site settings → Location → Allow</p>
+                                <p className="font-semibold mt-2">Firefox:</p>
+                                <p>• Click the 🔒 icon → Permissions → Location → Allow</p>
+                                <p className="font-semibold mt-2">Safari:</p>
+                                <p>• Safari menu → Settings → Websites → Location → Allow</p>
+                                <p className="mt-2 text-blue-600">After enabling, click "Fetch Location" again.</p>
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Latitude</label>
+                      <input
+                        type="text"
+                        value={formData.latitude || ''}
+                        onChange={(e) => handleInputChange('latitude', e.target.value)}
+                        placeholder="e.g., 22.5726"
+                        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-white transition-all"
+                        readOnly={fetchingLocation}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Longitude</label>
+                      <input
+                        type="text"
+                        value={formData.longitude || ''}
+                        onChange={(e) => handleInputChange('longitude', e.target.value)}
+                        placeholder="e.g., 88.3639"
+                        className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 bg-white transition-all"
+                        readOnly={fetchingLocation}
+                      />
+                    </div>
+                  </div>
+
+                  {(formData.latitude && formData.longitude) && (
+                    <div className="mt-3 p-2.5 bg-white rounded-lg border border-green-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-gray-700 font-medium text-xs">
+                          Location: {formData.latitude}, {formData.longitude}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 ml-3.5">
+                        💡 Coordinates captured successfully
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1970,18 +2558,18 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         placeholder="Temple Address"
                         className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
                       />
-                      <input
+                      {/* <input
                         type="tel"
                         value={formData.templeContactNumber || ''}
                         onChange={(e) => handleInputChange('templeContactNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
                         placeholder="Temple Contact Number"
                         className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
-                      />
-                      <div className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer">
+                      /> */}
+                      {/* <div className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer">
                         <span className="text-2xl mb-2 block">📄</span>
                         <p className="text-sm font-semibold text-gray-700">Upload Authorization Letter</p>
                         <p className="text-xs text-gray-500 mt-1">PDF or Image format</p>
-                      </div>
+                      </div> */}
                     </>
                   )}
                 </div>
@@ -2015,35 +2603,80 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
               </div>
 
               {/* Pujas Grid */}
-              <div className="max-h-96 overflow-y-auto space-y-2 pr-2">
-                {filteredPujaOptions.map((puja) => (
-                  <div
-                    key={puja.id}
-                    onClick={() => togglePuja(puja.id)}
-                    className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.01] ${formData.selectedPujas.includes(puja.id)
-                      ? 'border-orange-500 bg-orange-50 shadow-md'
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${formData.selectedPujas.includes(puja.id)
-                        ? 'border-orange-600 bg-orange-600'
-                        : 'border-gray-300'
-                        }`}>
-                        {formData.selectedPujas.includes(puja.id) && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <span className="text-lg">{puja.emoji}</span>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{puja.name}</h3>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
-                          <span className="bg-gray-100 px-2 py-1 rounded">⏱ {puja.duration}</span>
-                          <span className="text-green-700 font-semibold">₹{puja.priceWithSamagri}</span>
-                          <span className="text-gray-500">₹{puja.priceWithoutSamagri}</span>
+              <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
+                {filteredPujaOptions.map((puja) => {
+                  const pujaIdStr = puja.puja_type_id.toString();
+                  const isSelected = formData.selectedPujas.includes(pujaIdStr);
+
+                  return (
+                    <div
+                      key={puja.puja_type_id}
+                      className={`border-2 rounded-2xl transition-all duration-200 ${isSelected
+                        ? 'border-orange-500 bg-gradient-to-r from-orange-50 to-amber-50 shadow-lg'
+                        : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                        }`}
+                    >
+                      <div
+                        onClick={() => togglePuja(puja.puja_type_id)}
+                        className="p-4 cursor-pointer hover:bg-white/50 rounded-t-2xl transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected
+                            ? 'border-orange-600 bg-orange-600 shadow-md'
+                            : 'border-gray-300 hover:border-orange-400'
+                            }`}>
+                            {isSelected && <Check className="w-4 h-4 text-white" />}
+                          </div>
+                          <span className="text-2xl">{getPujaEmoji(puja.puja_type_name)}</span>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-gray-900 text-lg">{puja.puja_type_name}</h3>
+                            <div className="flex items-center gap-4 mt-1 text-sm">
+                              <span className="bg-white/80 px-3 py-1 rounded-full text-gray-700 font-medium border">⏱ {puja.puja_duration} hrs</span>
+                              <span className="text-green-700 font-bold">₹{puja.puja_with_samagri_amount}</span>
+                              <span className="text-gray-500 font-semibold">₹{puja.puja_without_samagri_amount}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
+
+                      {isSelected && (
+                        <div className="px-4 pb-4 border-t border-orange-200/50">
+                          <p className="text-sm font-semibold text-gray-700 mb-3 mt-3">💰 Set Your Prices</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-2">With Samagri</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-semibold">₹</span>
+                                <input
+                                  type="text"
+                                  value={formData.pujaPrices[pujaIdStr]?.withSamagri || ''}
+                                  onChange={(e) => updatePujaPrice(pujaIdStr, 'withSamagri', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  placeholder={puja.puja_with_samagri_amount}
+                                  className="w-full pl-8 pr-3 py-3 text-sm font-semibold border-2 border-green-200 rounded-xl focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 bg-white transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-2">Without Samagri</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-semibold">₹</span>
+                                <input
+                                  type="text"
+                                  value={formData.pujaPrices[pujaIdStr]?.withoutSamagri || ''}
+                                  onChange={(e) => updatePujaPrice(pujaIdStr, 'withoutSamagri', e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  placeholder={puja.puja_without_samagri_amount}
+                                  className="w-full pl-8 pr-3 py-3 text-sm font-semibold border-2 border-blue-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 bg-white transition-all"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {filteredPujaOptions.length === 0 && (
                   <div className="text-center py-8 text-gray-500">
@@ -2054,10 +2687,39 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
               </div>
 
               {formData.selectedPujas.length > 0 && (
-                <div className="bg-green-50 border-2 border-green-200 p-3 rounded-xl">
-                  <p className="text-green-800 font-semibold text-sm">
-                    ✓ {formData.selectedPujas.length} {formData.selectedPujas.length === 1 ? 'puja' : 'pujas'} selected
-                  </p>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 p-4 rounded-2xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-green-800 font-bold">
+                        ✓ {formData.selectedPujas.length} {formData.selectedPujas.length === 1 ? 'puja' : 'pujas'} selected
+                      </p>
+                      <p className="text-green-600 text-sm">
+                        Custom prices set for your services
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Price Summary */}
+                  <div className="mt-3 space-y-1">
+                    {formData.selectedPujas.map((pujaId) => {
+                      const puja = pujaOptions.find(p => p.id === pujaId);
+                      const prices = formData.pujaPrices[pujaId];
+                      if (!puja || !prices) return null;
+
+                      return (
+                        <div key={pujaId} className="flex justify-between items-center text-sm">
+                          <span className="text-gray-700 font-medium">{puja.emoji} {puja.name}</span>
+                          <div className="flex gap-2">
+                            <span className="text-green-700 font-semibold">₹{prices.withSamagri}</span>
+                            <span className="text-gray-500">₹{prices.withoutSamagri}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -2085,21 +2747,42 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           {currentStep < 10 ? (
             <button
               onClick={async () => {
-                // Run validation before proceeding
+                // 1. Run Validation
                 const isValid = validateCurrentStep();
                 if (!isValid) {
-                  return; // Don't proceed if validation fails
+                  console.log('Validation failed:', validationErrors);
+                  return;
                 }
 
+                // 2. Handle Step 2 (Registration)
                 if (currentStep === 2) {
-                  // Handle Step 2 completion with API call
                   const success = await handleStep2Complete();
-                  if (success) {
-                    setCurrentStep(currentStep + 1);
-                  }
-                } else {
-                  setCurrentStep(currentStep + 1);
+                  if (success) setCurrentStep(currentStep + 1);
+                  return;
                 }
+
+                // 3. Handle Step 6 (Address)
+                // if (currentStep === 6) {
+                //   const success = await handleStep6Complete();
+                //   if (success) setCurrentStep(currentStep + 1);
+                //   return;
+                // }  
+
+                // 4. Handle Step 9 (Professional & Temple Details)
+                if (currentStep === 9) {
+                  console.log('Executing Step 9 API call...');
+                  const success = await handleStep9Complete();
+                  if (success) {
+                    console.log('Step 9 success, moving to next step');
+                    setCurrentStep(currentStep + 1);
+                  } else {
+                    console.error('Step 9 API call failed');
+                  }
+                  return;
+                }
+
+                // 5. Default: Just move to next step
+                setCurrentStep(currentStep + 1);
               }}
               disabled={!canProceed() || loadingRegistration}
               className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${canProceed() && !loadingRegistration
@@ -2110,7 +2793,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
               {loadingRegistration ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Registering...
+                  Saving...
                 </>
               ) : (
                 <>
@@ -2121,15 +2804,37 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
-              disabled={!canProceed()}
-              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${canProceed()
+              onClick={async () => {
+                // Run validation before final submission
+                const isValid = validateCurrentStep();
+                if (!isValid) {
+                  return;
+                }
+
+                // Handle Step 10 completion with API call
+                const success = await handleStep10Complete();
+                if (success) {
+                  // All steps complete, call the final onComplete handler
+                  handleSubmit();
+                }
+              }}
+              disabled={!canProceed() || loadingRegistration}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl transition-all text-base font-semibold transform ${canProceed() && !loadingRegistration
                 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:shadow-xl hover:shadow-green-200 hover:scale-[1.02]'
                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
             >
-              <Check className="w-5 h-5" />
-              Submit Registration
+              {loadingRegistration ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5" />
+                  Submit Registration
+                </>
+              )}
             </button>
           )}
         </div>
