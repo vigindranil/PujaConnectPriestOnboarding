@@ -5,23 +5,35 @@ interface ImageCarouselProps {
   interval?: number;
 }
 
-export const ImageCarousel: React.FC<ImageCarouselProps> = ({ autoPlay = true, interval = 5000 }) => {
+export const ImageCarousel: React.FC<ImageCarouselProps> = ({
+  autoPlay = true,
+  interval = 5000
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageError, setImageError] = useState<boolean[]>([]);
 
-  // Temple background images - these should be saved in public/images/temples/
-  // Place your temple images with these exact filenames in the public folder
+  // Use import.meta.env.BASE_URL to get the correct base path
+  const basePath = import.meta.env.BASE_URL;
+
+  // Updated paths with base path support
   const images = [
-    '/images/temples/Durga.png',
-    '/images/temples/Khali.png',
-    '/images/temples/Lakshmi.png',
+    `${basePath}images/temples/Durga.png`,
+    `${basePath}images/temples/Khali.png`,
+    `${basePath}images/temples/Lakshmi.png`,
+    `${basePath}images/temples/Temple.png`,
   ];
-
-  // Fallback gradients if images are not available
+  // Fallback gradients if images fail to load
   const fallbackGradients = [
     'linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%)',
     'linear-gradient(135deg, #ea580c 0%, #dc2626 50%, #991b1b 100%)',
     'linear-gradient(135deg, #dc2626 0%, #991b1b 50%, #7f1d1d 100%)',
+    'linear-gradient(135deg, #991b1b 0%, #7f1d1d 50%, #450a0a 100%)',
   ];
+
+  useEffect(() => {
+    // Initialize error state
+    setImageError(new Array(images.length).fill(false));
+  }, []);
 
   useEffect(() => {
     if (!autoPlay) return;
@@ -33,24 +45,41 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({ autoPlay = true, i
     return () => clearInterval(timer);
   }, [autoPlay, interval, images.length]);
 
+  const handleImageError = (index: number) => {
+    setImageError(prev => {
+      const newState = [...prev];
+      newState[index] = true;
+      return newState;
+    });
+  };
+
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className="absolute inset-0 overflow-hidden -z-0">
       {/* Image slides */}
       {images.map((image, index) => (
         <div
           key={index}
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            index === currentIndex ? 'opacity-100' : 'opacity-0'
-          }`}
-          style={{
-            backgroundImage: `url('${image}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            background: `url('${image}') center/cover, ${fallbackGradients[index]}`,
-          }}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentIndex ? 'opacity-100' : 'opacity-0'
+            }`}
         >
+          {/* Use gradient as background, image as overlay */}
+          <div
+            className="absolute inset-0"
+            style={{ background: fallbackGradients[index] }}
+          />
+
+          {/* Image overlay */}
+          {!imageError[index] && (
+            <img
+              src={image}
+              alt={`Temple ${index + 1}`}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={() => handleImageError(index)}
+            />
+          )}
+
           {/* Dark overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/45"></div>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
         </div>
       ))}
 
@@ -60,11 +89,10 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({ autoPlay = true, i
           <button
             key={index}
             onClick={() => setCurrentIndex(index)}
-            className={`w-2 h-2 rounded-full transition-all ${
-              index === currentIndex
-                ? 'bg-white w-8'
-                : 'bg-white/50 hover:bg-white/75'
-            }`}
+            className={`transition-all duration-300 rounded-full ${index === currentIndex
+              ? 'bg-white w-8 h-2 shadow-lg'
+              : 'bg-white/50 hover:bg-white/75 w-2 h-2'
+              }`}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}
@@ -72,4 +100,3 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({ autoPlay = true, i
     </div>
   );
 };
-

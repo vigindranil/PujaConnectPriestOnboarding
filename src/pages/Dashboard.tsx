@@ -372,7 +372,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Total Registered */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+          {/* <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="relative z-10 flex items-center justify-between">
               <div>
@@ -384,7 +384,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-blue-200/20 to-indigo-300/20 rounded-full blur-xl"></div>
-          </div>
+          </div> */}
 
           {/* Approved */}
           <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">

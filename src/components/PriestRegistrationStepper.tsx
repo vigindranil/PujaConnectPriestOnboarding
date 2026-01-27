@@ -3,6 +3,7 @@ import { ChevronRight, ChevronLeft, Check, Menu, ArrowLeft, Phone, Mail, User, C
 import { API_CONFIG, getApiUrl } from '../config/api';
 import { authService } from '../services/authService';
 import { priestService } from '../services/priestService';
+import { useSacredAlert } from '../hooks/useSacredAlert';
 
 interface PriestRegistrationFormData {
   registrationMode: 'self' | 'survey' | '';
@@ -121,6 +122,16 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [registeredUserId, setRegisteredUserId] = useState<number | null>(101); // For testing, set a default user ID
 
+
+  const {
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    AlertComponent
+  } = useSacredAlert();
+
+
   // Validation functions
   const validateField = (field: string, value: string | boolean | string[] | undefined): string => {
     // Convert value to string for validation, handle undefined/null
@@ -186,16 +197,16 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           return 'Temple name is required when associated with temple';
         }
         return '';
-      case 'managingAuthority':
-        if (formData.associatedWithTemple && (!stringValue || stringValue.trim().length < 2)) {
-          return 'Managing authority is required when associated with temple';
-        }
-        return '';
-      case 'templeAddress':
-        if (formData.associatedWithTemple && (!stringValue || stringValue.trim().length < 5)) {
-          return 'Temple address is required when associated with temple';
-        }
-        return '';
+      // case 'managingAuthority':
+      //   // if (formData.associatedWithTemple && (!stringValue || stringValue.trim().length < 2)) {
+      //   //   return 'Managing authority is required when associated with temple';
+      //   // }
+      //   return '';
+      // case 'templeAddress':
+      //   if (formData.associatedWithTemple && (!stringValue || stringValue.trim().length < 5)) {
+      //     return 'Temple address is required when associated with temple';
+      //   }
+      //   return '';
       case 'templeContactNumber':
         //   if (formData.associatedWithTemple) {
         //     if (!stringValue || stringValue.length !== 10) return 'Temple contact must be exactly 10 digits';
@@ -273,12 +284,12 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       case 9:
         if (formData.associatedWithTemple) {
           const templeNameError = validateField('templeName', formData.templeName);
-          const managingAuthorityError = validateField('managingAuthority', formData.managingAuthority);
+          // const managingAuthorityError = validateField('managingAuthority', formData.managingAuthority);
           const templeAddressError = validateField('templeAddress', formData.templeAddress);
           // const templeContactError = validateField('templeContactNumber', formData.templeContactNumber);
 
           if (templeNameError) { errors.templeName = templeNameError; isValid = false; }
-          if (managingAuthorityError) { errors.managingAuthority = managingAuthorityError; isValid = false; }
+          // if (managingAuthorityError) { errors.managingAuthority = managingAuthorityError; isValid = false; }
           if (templeAddressError) { errors.templeAddress = templeAddressError; isValid = false; }
           // if (templeContactError) { errors.templeContactNumber = templeContactError; isValid = false; }
         }
@@ -393,6 +404,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         handleInputChange('latitude', latitude);
         handleInputChange('longitude', longitude);
         setFetchingLocation(false);
+        // ADD THIS:
+        showSuccess('Location Verified 📍', 'Your coordinates have been captured successfully.');
       },
       (error) => {
         let errorMessage = 'Unable to fetch location. ';
@@ -410,6 +423,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             errorMessage = '❌ An unknown error occurred. Please try again.';
             break;
         }
+        showError('Location Error 🚫', errorMessage);
         setLocationError(errorMessage);
         setFetchingLocation(false);
       },
@@ -462,13 +476,16 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             console.error('Error parsing response data:', e);
           }
         }
+        showSuccess('Registration Successful 🙏', 'Your basic details have been registered.');
         return true;
       } else {
+        showError('Registration Failed ⚠️', response.message || 'Unable to register. Please try again.');
         setRegistrationError(response.message || 'Registration failed');
         return false;
       }
     } catch (error) {
       console.error('Registration error:', error);
+      showError('System Error 🔥', error instanceof Error ? error.message : 'Registration failed');
       setRegistrationError(error instanceof Error ? error.message : 'Registration failed');
       return false;
     } finally {
@@ -577,6 +594,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   // };
 
 
+
   /**
    * Handle Step 9 completion - Save Professional & Temple Info
    */
@@ -606,14 +624,16 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       }
 
       // 2. Prepare Temple Data
-      let templeInfo: {
-        temple_id: number;
-        temple_name: string;
-        temple_address: string;
-        managing_authority_name: string;
-        remarks: string;
-      } | undefined = undefined;
+      // FIX: Initialize with default "empty" values instead of undefined
+      let templeInfo = {
+        temple_id: 0,
+        temple_name: "",
+        temple_address: "",
+        managing_authority_name: "",
+        remarks: ""
+      };
 
+      // Only populate if checked
       if (formData.associatedWithTemple) {
         const selectedTempleObj = temples.find(t => t.temple_name === formData.templeName);
 
@@ -627,7 +647,6 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       }
 
       // 3. Construct Final Payload
-      // REMOVED entry_user_id from here, it is now handled by the service
       const payload = {
         priest_user_id: registeredUserId,
         professional_info: {
@@ -635,7 +654,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           remarks: "Registered via Web App"
         },
         language_info: languageInfo,
-        temple_info: templeInfo
+        temple_info: templeInfo // Now always sends a valid object
       };
 
       // 4. Call API
@@ -665,11 +684,13 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     console.log('Starting Step 10 completion process...');
 
     if (!registeredUserId) {
+      showError('Session Error ⚠️', 'User ID not found. Please restart the process.');
       setRegistrationError('User ID not found. Please complete previous steps.');
       return false;
     }
 
     if (formData.selectedPujas.length === 0) {
+      showWarning('Selection Required 📿', 'Please select at least one puja to proceed.');
       setRegistrationError('Please select at least one puja.');
       return false;
     }
@@ -681,6 +702,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     });
 
     if (incompletePujas.length > 0) {
+      showWarning('Pricing Missing 💰', 'Please set prices for all selected pujas.');
       setRegistrationError('Please set prices for all selected pujas.');
       return false;
     }
@@ -730,15 +752,18 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
       // Check single response status
       if (response.status === 0) {
+        showSuccess('Onboarding Complete 🎉', 'Your profile and services have been saved successfully.');
         console.log('All pujas saved successfully:', response);
         return true;
       } else {
+        showError('Submission Failed ⚠️', response.message || 'Failed to save puja information');
         setRegistrationError(response.message || 'Failed to save puja information');
         return false;
       }
       // --------------------------
 
     } catch (error) {
+      showError('Network Error 🔥', 'An unexpected error occurred while saving.');
       console.error('Error saving puja information:', error);
       setRegistrationError(error instanceof Error ? error.message : 'Failed to save puja information');
       return false;
@@ -1078,7 +1103,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ enc_data: JSON.stringify({ state_id: selectedState.state_id.toString(), district_id: '0' }) }),
+          body: JSON.stringify({ enc_data: JSON.stringify({ state_id: "28", district_id: '0' }) }),
         });
 
         const result = await response.json();
@@ -1232,7 +1257,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         return formData.yearsOfExperience && formData.primaryLanguage;
       case 9:
         if (!formData.associatedWithTemple) return true;
-        return formData.templeName && formData.managingAuthority && formData.templeAddress;
+        return formData.templeName;
       case 10:
         return formData.selectedPujas.length > 0;
       default:
@@ -1453,7 +1478,9 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         if (response.status === 0) {
                           setOtpSent(true);
                           setOtpInput('');
+                          showInfo('OTP Sent 📩', `A verification code has been sent to ${formData.mobileNumber}`);
                         } else {
+                          showError('OTP Failed ❌', response.message || 'Failed to send OTP');
                           setOtpError(response.message || 'Failed to send OTP');
                         }
                       } catch (error) {
@@ -2329,6 +2356,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           )}
 
           {/* Step 7: Permanent Address */}
+          {/* Step 7: Permanent Address */}
           {currentStep === 7 && (
             <div className="space-y-6 animate-fadeIn">
               <div className="text-center mb-8">
@@ -2351,13 +2379,44 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
 
               {!formData.permanentSameAsPresent && (
                 <div className="space-y-4 bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-2xl border-2 border-gray-200">
-                  <input type="text" placeholder="House Number" className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" />
-                  <input type="text" placeholder="Street" className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" />
+                  <input
+                    type="text"
+                    placeholder="House Number"
+                    value={formData.permanentHouseNumber || ''}
+                    onChange={(e) => handleInputChange('permanentHouseNumber', e.target.value)}
+                    className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Street"
+                    value={formData.permanentStreet || ''}
+                    onChange={(e) => handleInputChange('permanentStreet', e.target.value)}
+                    className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
+                  />
                   <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="City" className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" />
-                    <input type="text" placeholder="Post Office" className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" />
+                    <input
+                      type="text"
+                      placeholder="City"
+                      value={formData.permanentCity || ''}
+                      onChange={(e) => handleInputChange('permanentCity', e.target.value)}
+                      className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Post Office"
+                      value={formData.permanentPostOffice || ''}
+                      onChange={(e) => handleInputChange('permanentPostOffice', e.target.value)}
+                      className="px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
+                    />
                   </div>
-                  <input type="text" placeholder="PIN Code" className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all" />
+                  <input
+                    type="text"
+                    placeholder="PIN Code"
+                    value={formData.permanentPinCode || ''}
+                    onChange={(e) => handleInputChange('permanentPinCode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                    className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
+                  />
                 </div>
               )}
             </div>
@@ -2550,20 +2609,20 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                         </div>
                       </div>
 
-                      <input
+                      {/* <input
                         type="text"
                         value={formData.managingAuthority || ''}
                         onChange={(e) => handleInputChange('managingAuthority', e.target.value)}
                         placeholder="Managing Authority / Trust"
                         className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
-                      />
-                      <input
+                      /> */}
+                      {/* <input
                         type="text"
                         value={formData.templeAddress || ''}
                         onChange={(e) => handleInputChange('templeAddress', e.target.value)}
                         placeholder="Temple Address"
                         className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:outline-none focus:border-orange-500 bg-white transition-all"
-                      />
+                      /> */}
                       {/* <input
                         type="tel"
                         value={formData.templeContactNumber || ''}
@@ -2862,6 +2921,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           animation: fadeIn 0.4s ease-out;
         }
       `}</style>
+      <AlertComponent />
     </div>
   );
 }
