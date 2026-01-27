@@ -595,7 +595,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       // 1. Prepare Language Data
       const selectedLangObj = languages.find(l => l.language_name === formData.primaryLanguage);
 
-      const languageInfo = [];
+      const languageInfo: Array<{ language_id: number; language_type_id: number }> = [];
       if (selectedLangObj) {
         languageInfo.push({
           language_id: selectedLangObj.language_id,
@@ -606,7 +606,13 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
       }
 
       // 2. Prepare Temple Data
-      let templeInfo = undefined;
+      let templeInfo: {
+        temple_id: number;
+        temple_name: string;
+        temple_address: string;
+        managing_authority_name: string;
+        remarks: string;
+      } | undefined = undefined;
 
       if (formData.associatedWithTemple) {
         const selectedTempleObj = temples.find(t => t.temple_name === formData.templeName);
