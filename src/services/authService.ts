@@ -304,6 +304,77 @@ class AuthService {
     return 1; // Default to 1 (Admin/System) if no user found
   }
 
+
+   // =========================================================
+  // NEW METHODS FOR AUTHORITY (PRIEST) LOGIN
+  // =========================================================
+
+  /**
+   * Send Authority OTP
+   */
+  async sendAuthorityOTP(mobileNumber: string): Promise<OTPResponse> {
+    try {
+      const token = await this.getValidToken();
+      const encData = JSON.stringify({ mobile_number: mobileNumber });
+
+      const response = await fetch(`${API_BASE_URL}/auth/authority_generate_otp`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ enc_data: encData }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: OTPResponse = await response.json();
+
+      if (data.status === 0) {
+        return data;
+      } else {
+        throw new Error(data.message || 'Failed to send Authority OTP');
+      }
+    } catch (error) {
+      console.error('Error sending Authority OTP:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate Authority OTP
+   */
+  async validateAuthorityOTP(mobileNumber: string, otp: string): Promise<{ userData: UserData; response: ValidateOTPResponse }> {
+    try {
+      const token = await this.getValidToken();
+      const encData = JSON.stringify({ mobile_number: mobileNumber, otp });
+
+      const response = await fetch(`${API_BASE_URL}/auth/authority_validate_otp`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ enc_data: encData }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: ValidateOTPResponse = await response.json();
+
+      if (data.status === 0) {
+        // Parse user data from the response
+        const userData = JSON.parse(data.data) as UserData;
+        return { userData, response: data };
+      } else {
+        throw new Error(data.message || 'Failed to validate Authority OTP');
+      }
+    } catch (error) {
+      console.error('Error validating Authority OTP:', error);
+      throw error;
+    }
+  }
+
   /**
    * Register Priest
    */
@@ -349,6 +420,8 @@ class AuthService {
       throw error;
     }
   }
+
+
 
 
 

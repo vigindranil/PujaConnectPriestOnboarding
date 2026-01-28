@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, ArrowLeft, Phone, Lock } from 'lucide-react';
+import { Flame, ArrowLeft, Phone, Lock, User, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ImageCarousel } from '../components/ImageCarousel';
 import { AlertMessage } from '../components/AlertMessage';
@@ -7,6 +7,7 @@ import { OTPSuccessScreen } from '../components/OTPSuccessScreen';
 import { authService } from '../services/authService';
 
 type LoginStep = 'phone' | 'otp' | 'success';
+type UserType = 'user' | 'authority';
 
 interface LoginScreenProps {
   onLoginSuccess?: () => void;
@@ -15,6 +16,8 @@ interface LoginScreenProps {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [step, setStep] = useState<LoginStep>('phone');
+  const [userType, setUserType] = useState<UserType>('user');
+
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,8 +38,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      // Call API to send OTP
-      await authService.sendOTP(cleanPhone);
+      // Conditional API Call based on User Type
+      if (userType === 'authority') {
+        await authService.sendAuthorityOTP(cleanPhone);
+      } else {
+        await authService.sendOTP(cleanPhone);
+      }
+
       setLoading(false);
       setSuccessAlert(true);
       setTimeout(() => {
@@ -60,13 +68,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
     setLoading(true);
     try {
-      // Call API to validate OTP and get user details
       const cleanPhone = phoneNumber.replace(/\D/g, '');
-      const { userData } = await authService.validateOTP(cleanPhone, otp);
-      
+      let userData;
+
+      // Conditional Validation API Call based on User Type
+      if (userType === 'authority') {
+        const response = await authService.validateAuthorityOTP(cleanPhone, otp);
+        userData = response.userData;
+      } else {
+        const response = await authService.validateOTP(cleanPhone, otp);
+        userData = response.userData;
+      }
+
       // Store user data in localStorage for dashboard access
-      localStorage.setItem('puja_connect_user', JSON.stringify(userData));
-      
+      // We also store the type so the app knows how to render the dashboard
+      const storedData = {
+        ...userData,
+        loginType: userType // Helper flag for UI decisions later
+      };
+
+      localStorage.setItem('puja_connect_user', JSON.stringify(storedData));
+
       setLoading(false);
       setSuccessAlert(true);
       setTimeout(() => {
@@ -75,6 +97,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           if (onLoginSuccess) {
             onLoginSuccess();
           }
+          // Redirect to appropriate dashboard if needed, or default
           navigate('/dashboard');
         }, 3000);
       }, 1500);
@@ -144,7 +167,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* Content */}
-          <div className="px-8 py-10">
+          <div className="px-8 pt-8 pb-4">
             {step === 'phone' ? (
               <form onSubmit={handlePhoneSubmit} className="space-y-6">
                 <div>
@@ -153,12 +176,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       <AlertMessage
                         type="success"
                         title="OTP Sent Successfully!"
-                        message="A 6-digit OTP has been sent to your phone number."
+                        message={`A 6-digit OTP has been sent to your ${userType === 'authority' ? 'registered' : ''} phone number.`}
                         autoClose={true}
                         duration={2000}
                       />
                     </div>
                   )}
+
+                  {/* User Type Toggle */}
+                  <div className="bg-slate-100 p-1.5 rounded-xl flex items-center mb-6 relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserType('user');
+                        setError('');
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10 ${userType === 'user'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                      <User className="w-4 h-4" />
+                      Priest
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserType('authority');
+                        setError('');
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 relative z-10 ${userType === 'authority'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                      <Crown className="w-4 h-4" />
+                      Agent / Authority
+                    </button>
+                  </div>
 
                   <label className="block text-sm font-semibold text-slate-700 mb-3">
                     Mobile Number
@@ -195,11 +250,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading || phoneNumber.replace(/\D/g, '').length !== 10}
-                  className={`group relative w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${
-                    loading || phoneNumber.replace(/\D/g, '').length !== 10
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5'
-                  }`}
+                  className={`group relative w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${loading || phoneNumber.replace(/\D/g, '').length !== 10
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5'
+                    }`}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -219,13 +273,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       <AlertMessage
                         type="success"
                         title="OTP Verified!"
-                        message="Your phone number has been verified successfully. Welcome to PujaConnect!"
+                        message={`Welcome back, ${userType === 'authority' ? 'Priest' : 'Devotee'}!`}
                         autoClose={true}
                         duration={3000}
                       />
                     </div>
                   )}
-                  
+
                   <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full mb-4 animate-pulse-glow">
                       <Lock className="w-8 h-8 text-orange-600" />
@@ -267,7 +321,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                             const otpString = newOtp.join('').slice(0, 6);
                             setOtp(otpString);
                             setError('');
-                            
+
                             // Auto-focus next input if value entered
                             if (value && index < 5) {
                               const nextInput = document.querySelector(
@@ -277,16 +331,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                             }
                           }}
                           onKeyDown={(e) => {
-                            // Handle backspace to delete and move to previous input
+                            // Handle backspace
                             if (e.key === 'Backspace') {
-                              e.preventDefault();
-                              if (otp[index]) {
-                                // If current input has value, just delete it
-                                const newOtp = otp.split('');
-                                newOtp[index] = '';
-                                setOtp(newOtp.join(''));
-                              } else if (index > 0) {
+                              if (!otp[index] && index > 0) {
                                 // If empty, move to previous and delete
+                                e.preventDefault();
                                 const newOtp = otp.split('');
                                 newOtp[index - 1] = '';
                                 setOtp(newOtp.join(''));
@@ -294,9 +343,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                                   `input[data-otp-index="${index - 1}"]`
                                 ) as HTMLInputElement;
                                 prevInput?.focus();
+                              } else if (otp[index]) {
+                                // If value exists, delete it normally
+                                const newOtp = otp.split('');
+                                newOtp[index] = '';
+                                setOtp(newOtp.join(''));
                               }
                             }
-                            // Handle arrow keys for navigation
+                            // Handle arrow keys
                             else if (e.key === 'ArrowLeft' && index > 0) {
                               e.preventDefault();
                               const prevInput = document.querySelector(
@@ -318,7 +372,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="text-center">
                     <p className="text-sm text-slate-500 flex items-center justify-center gap-2">
                       <Lock className="w-4 h-4" />
@@ -341,11 +395,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className={`group relative w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${
-                    loading || otp.length !== 6
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5'
-                  }`}
+                  className={`group relative w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${loading || otp.length !== 6
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5'
+                    }`}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -388,7 +441,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-200/60 px-8 py-6 bg-gradient-to-r from-slate-50/80 to-orange-50/30 backdrop-blur-sm">
+          <div className="border-t border-slate-200/60 px-8 py-4 bg-gradient-to-r from-slate-50/80 to-orange-50/30 backdrop-blur-sm">
             <p className="text-xs text-slate-500 text-center leading-relaxed">
               By continuing, you agree to our{' '}
               <button className="text-orange-600 hover:text-orange-700 hover:underline font-medium transition-colors duration-200">

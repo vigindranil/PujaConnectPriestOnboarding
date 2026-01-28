@@ -1,9 +1,125 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, LogOut, Plus, Search, Eye, Edit2, Trash2, X, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import {
+  Flame, Plus, Search, Eye, Edit2, Trash2, X,
+  Check, Clock, XOctagon, LayoutGrid, Wallet,
+  Sparkles, Filter, MoreHorizontal, ArrowUpRight
+} from 'lucide-react';
 import type { UserData } from '../services/authService';
 import { getAgentDashboard, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
+import { Navbar } from '../components/Navbar';
+import flameIcon from "../assets/flame.svg"
 
+// --- SACRED GEOMETRY & 3D STYLE INJECTION ---
+const sacredStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Philosopher:ital,wght@0,400;0,700;1,400&family=Urbanist:wght@300;400;500;600;700&display=swap');
+  
+  :root {
+    --c-primary: #D97706; 
+    --c-secondary: #9F1239;
+    --c-bg: #FFFBF2; 
+    --c-stone-light: #FFFFFF;
+    --c-stone-shadow: #E6DCC8;
+    --c-text: #292524;
+  }
+  
+  body {
+    background-color: var(--c-bg);
+    font-family: 'Urbanist', sans-serif;
+    color: var(--c-text);
+    overflow-x: hidden;
+  }
+
+  .font-sacred { font-family: 'Philosopher', serif; }
+  
+  /* --- 3D Embedded Look (Neumorphic/Stone) --- */
+  .stone-card {
+    background: linear-gradient(145deg, #ffffff, #fff8f0);
+    box-shadow: 
+      8px 8px 16px var(--c-stone-shadow), 
+      -8px -8px 16px #ffffff;
+    border: 1px solid rgba(255,255,255,0.4);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .stone-card:hover {
+    transform: translateY(-5px) scale(1.01);
+    box-shadow: 
+      15px 15px 25px rgba(217, 119, 6, 0.15), 
+      -8px -8px 16px #ffffff;
+    border-color: rgba(217, 119, 6, 0.2);
+  }
+
+  .stone-inset {
+    background: #fdfaf4;
+    box-shadow: inset 3px 3px 6px #e6dfcf, inset -3px -3px 6px #ffffff;
+    border-radius: 12px;
+  }
+
+  /* --- Complex Geometric Backgrounds --- */
+  .geo-pattern {
+    position: fixed;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.4;
+  }
+  
+  /* Sri Yantra-ish Lines */
+  .yantra-lines {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(217, 119, 6, 0.03) 0px,
+      rgba(217, 119, 6, 0.03) 1px,
+      transparent 1px,
+      transparent 10px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(159, 18, 57, 0.03) 0px,
+      rgba(159, 18, 57, 0.03) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+  }
+
+  /* --- Clip Paths --- */
+  .clip-chamfer {
+    clip-path: polygon(
+      15px 0, 100% 0, 
+      100% calc(100% - 15px), calc(100% - 15px) 100%, 
+      0 100%, 0 15px
+    );
+  }
+  
+  .clip-hex-btn {
+    clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+  }
+
+  /* --- Animations --- */
+  @keyframes float-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .animate-float { animation: float-gentle 6s ease-in-out infinite; }
+
+  @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .animate-spin-slow { animation: spin-slow 120s linear infinite; }
+
+  /* Table Animations */
+  .table-row-animate {
+    transition: transform 0.2s ease, background-color 0.2s;
+  }
+  .table-row-animate:hover {
+    transform: translateX(4px);
+    background-color: rgba(217, 119, 6, 0.03);
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #f1f1f1; }
+  ::-webkit-scrollbar-thumb { background: #D97706; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9F1239; }
+`;
 
 interface RegisteredPriest {
   id: number;
@@ -38,13 +154,7 @@ export const Dashboard: React.FC = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [priests, setPriests] = useState<RegisteredPriest[]>([]);
   const [stats, setStats] = useState<AgentStats>({
-    todaySurvey: 0,
-    totalSurvey: 0,
-    totalRegistered: 0,
-    approved: 0,
-    pending: 0,
-    rejected: 0,
-    commissionEarned: 0,
+    todaySurvey: 0, totalSurvey: 0, totalRegistered: 0, approved: 0, pending: 0, rejected: 0, commissionEarned: 0,
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -52,130 +162,49 @@ export const Dashboard: React.FC = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPriest, setSelectedPriest] = useState<RegisteredPriest | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = sacredStyles;
+    document.head.appendChild(styleSheet);
+
     const stored = localStorage.getItem('puja_connect_user');
-    if (stored) {
-      try {
-        const user = JSON.parse(stored) as UserData;
-        setUserData(user);
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      }
-    }
+    if (stored) setUserData(JSON.parse(stored));
+
     loadMockPriestData();
     loadDashboardStats();
+
+    return () => { document.head.removeChild(styleSheet); };
   }, []);
 
   const loadDashboardStats = async () => {
-    setIsLoadingStats(true);
-    setStatsError(null);
-
     try {
       const user = getUserData();
       const token = getAuthToken();
-
-      if (!user || !token) {
-        throw new Error('User not authenticated');
-      }
-
-      const dashboardData: DashboardStats = await getAgentDashboard(user.user_id, token);
-
-      // Update stats with API data
-      setStats(prevStats => ({
-        ...prevStats,
-        todaySurvey: dashboardData.today_survey_qty,
-        totalSurvey: dashboardData.total_survey_qty,
-        approved: dashboardData.total_approved_qty,
-        pending: dashboardData.total_pending_qty,
-        rejected: dashboardData.total_rejected_qty,
-        commissionEarned: dashboardData.total_approved_qty * 5000,
+      if (!user || !token) throw new Error('Auth Error');
+      const data: DashboardStats = await getAgentDashboard(user.user_id, token);
+      setStats(prev => ({
+        ...prev,
+        todaySurvey: data.today_survey_qty,
+        totalSurvey: data.total_survey_qty,
+        approved: data.total_approved_qty,
+        pending: data.total_pending_qty,
+        rejected: data.total_rejected_qty,
+        commissionEarned: data.total_approved_qty * 5000,
       }));
-    } catch (error) {
-      console.error('Error loading dashboard stats:', error);
-      setStatsError(error instanceof Error ? error.message : 'Failed to load dashboard statistics');
-    } finally {
-      setIsLoadingStats(false);
-    }
+    } catch (e) { console.error(e); }
   };
 
   const loadMockPriestData = useCallback(() => {
     const mockPriests: RegisteredPriest[] = [
-      {
-        id: 1,
-        agentId: 'AGENT001',
-        priestName: 'Pandit Sharma',
-        priestPhone: '9876543210',
-        priestEmail: 'sharma@email.com',
-        experience: 15,
-        specialization: ['Vedic Rituals', 'Puja Ceremonies'],
-        education: 'Vedic Scholar',
-        certification: ['Vedic Studies Certificate', 'Ritual Specialist'],
-        location: 'Delhi',
-        bankAccount: '1234567890',
-        status: 'approved',
-        registeredDate: '2026-01-10',
-        updatedAt: '2026-01-15',
-        notes: 'Excellent performance, highly recommended',
-      },
-      {
-        id: 2,
-        agentId: 'AGENT001',
-        priestName: 'Priest Gupta',
-        priestPhone: '9876543211',
-        priestEmail: 'gupta@email.com',
-        experience: 8,
-        specialization: ['Marriage Ceremonies', 'Havan'],
-        education: 'Vedic Master',
-        certification: ['Marriage Ceremony Specialist'],
-        location: 'Mumbai',
-        status: 'pending',
-        registeredDate: '2026-01-20',
-        updatedAt: '2026-01-20',
-        notes: 'Under verification',
-      },
-      {
-        id: 3,
-        agentId: 'AGENT001',
-        priestName: 'Pandit Mishra',
-        priestPhone: '9876543212',
-        priestEmail: 'mishra@email.com',
-        experience: 20,
-        specialization: ['Astrology', 'Vedic Rituals', 'Death Rituals'],
-        education: 'Senior Vedic Scholar',
-        certification: ['Astrology Certificate', 'Rituals Specialist'],
-        location: 'Varanasi',
-        bankAccount: '0987654321',
-        status: 'approved',
-        registeredDate: '2026-01-05',
-        updatedAt: '2026-01-12',
-      },
-      {
-        id: 4,
-        agentId: 'AGENT001',
-        priestName: 'Priest Patel',
-        priestPhone: '9876543213',
-        priestEmail: 'patel@email.com',
-        experience: 5,
-        specialization: ['Puja Ceremonies', 'Pooja'],
-        education: 'Vedic Basics',
-        certification: ['Basic Puja Certificate'],
-        location: 'Bangalore',
-        status: 'rejected',
-        registeredDate: '2026-01-19',
-        updatedAt: '2026-01-22',
-        notes: 'Does not meet certification requirements',
-      },
+      { id: 1, agentId: 'A1', priestName: 'Pandit Sharma', priestPhone: '9876543210', priestEmail: 'sharma@email.com', experience: 15, specialization: ['Vedic Rituals', 'Puja'], education: 'Vedic Scholar', certification: ['Ritual Specialist'], location: 'Delhi', status: 'approved', registeredDate: '2026-01-10', updatedAt: '2026-01-15' },
+      { id: 2, agentId: 'A1', priestName: 'Priest Gupta', priestPhone: '9876543211', priestEmail: 'gupta@email.com', experience: 8, specialization: ['Marriage', 'Havan'], education: 'Vedic Master', certification: ['Marriage Specialist'], location: 'Mumbai', status: 'pending', registeredDate: '2026-01-20', updatedAt: '2026-01-20' },
+      { id: 3, agentId: 'A1', priestName: 'Pandit Mishra', priestPhone: '9876543212', priestEmail: 'mishra@email.com', experience: 20, specialization: ['Astrology', 'Vedic Rituals'], education: 'Senior Scholar', certification: ['Astrology Cert'], location: 'Varanasi', status: 'approved', registeredDate: '2026-01-05', updatedAt: '2026-01-12' },
+      { id: 4, agentId: 'A1', priestName: 'Priest Patel', priestPhone: '9876543213', priestEmail: 'patel@email.com', experience: 5, specialization: ['Puja'], education: 'Basic Vedic', certification: ['Basic Cert'], location: 'Bangalore', status: 'rejected', registeredDate: '2026-01-19', updatedAt: '2026-01-22' },
+      { id: 5, agentId: 'A1', priestName: 'Acharya Singh', priestPhone: '9876543214', priestEmail: 'singh@email.com', experience: 12, specialization: ['Vastu', 'Griha Pravesh'], education: 'PhD Sanskrit', certification: ['Vastu Shastra'], location: 'Jaipur', status: 'approved', registeredDate: '2026-01-25', updatedAt: '2026-01-26' },
     ];
-
     setPriests(mockPriests);
-    // Set totalRegistered from mock data
-    setStats(prevStats => ({
-      ...prevStats,
-      totalRegistered: mockPriests.length,
-    }));
+    setStats(prev => ({ ...prev, totalRegistered: mockPriests.length }));
   }, []);
 
   const handleLogout = () => {
@@ -184,967 +213,540 @@ export const Dashboard: React.FC = () => {
     navigate('/');
   };
 
-  const handleAddPriest = (newPriest: Omit<RegisteredPriest, 'id' | 'agentId'>) => {
-    const priest: RegisteredPriest = {
-      ...newPriest,
-      id: Math.max(...priests.map(p => p.id), 0) + 1,
-      agentId: userData?.user_id.toString() || 'AGENT001',
-    };
-    const updatedPriests = [...priests, priest];
-    setPriests(updatedPriests);
-    setStats(prevStats => ({
-      ...prevStats,
-      totalRegistered: updatedPriests.length,
-    }));
+  const handleAddPriest = (p: any) => {
+    setPriests([...priests, { ...p, id: Date.now(), agentId: userData?.user_id || 'A1' }]);
     setShowAddModal(false);
-    // Reload stats from API after adding priest
     loadDashboardStats();
   };
-
-  const handleEditPriest = (updatedPriest: RegisteredPriest) => {
-    const updatedPriests = priests.map(p => p.id === updatedPriest.id ? updatedPriest : p);
-    setPriests(updatedPriests);
-    setStats(prevStats => ({
-      ...prevStats,
-      totalRegistered: updatedPriests.length,
-    }));
+  const handleEditPriest = (p: any) => {
+    setPriests(priests.map(x => x.id === p.id ? p : x));
     setShowViewModal(false);
-    setIsEditMode(false);
-    // Reload stats from API after editing priest
     loadDashboardStats();
   };
-
   const handleDeletePriest = (id: number) => {
-    const updatedPriests = priests.filter(p => p.id !== id);
-    setPriests(updatedPriests);
-    setStats(prevStats => ({
-      ...prevStats,
-      totalRegistered: updatedPriests.length,
-    }));
+    setPriests(priests.filter(x => x.id !== id));
     setShowViewModal(false);
-    // Reload stats from API after deleting priest
     loadDashboardStats();
   };
 
-  const filteredPriests = priests.filter(priest => {
-    const matchesSearch = priest.priestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      priest.priestPhone.includes(searchTerm) ||
-      priest.priestEmail.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || priest.status === filterStatus;
-    return matchesSearch && matchesFilter;
+  const filtered = priests.filter(p => {
+    const s = searchTerm.toLowerCase();
+    const match = p.priestName.toLowerCase().includes(s) || p.priestPhone.includes(s) || p.priestEmail.toLowerCase().includes(s);
+    return filterStatus === 'all' ? match : match && p.status === filterStatus;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-300 shadow-green-200/50';
-      case 'pending':
-        return 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 border-yellow-300 shadow-yellow-200/50';
-      case 'rejected':
-        return 'bg-gradient-to-r from-red-100 to-rose-100 text-red-700 border-red-300 shadow-red-200/50';
-      default:
-        return 'bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 border-slate-300 shadow-slate-200/50';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'pending':
-        return <Clock className="w-4 h-4" />;
-      case 'rejected':
-        return <AlertCircle className="w-4 h-4" />;
-      default:
-        return null;
-    }
-  };
-
+  const flame = <img src={flameIcon} alt="flame" className="w-6 h-6" />;
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-gradient-to-br from-orange-200/20 to-amber-300/20 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-gradient-to-tr from-red-200/20 to-orange-300/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-gradient-to-r from-amber-200/10 to-orange-200/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }}></div>
+    <div className="min-h-screen relative w-full">
+
+      {/* --- ELABORATE GEOMETRIC BACKGROUND --- */}
+      <div className="fixed inset-0 bg-[#FFFBF2] -z-50"></div>
+      <div className="fixed inset-0 yantra-lines opacity-100 -z-40"></div>
+
+      {/* Rotating Mandala/Stars Top Right */}
+      <div className="fixed -top-40 -right-40 w-[800px] h-[800px] pointer-events-none -z-30">
+        {/* Clockwise Star - Orange */}
+        <div className="absolute inset-0 text-orange-200/30 animate-spin-slow">
+          <svg viewBox="0 0 200 200" fill="currentColor" className="w-full h-full">
+            <path d="M100 0 L120 80 L200 100 L120 120 L100 200 L80 120 L0 100 L80 80 Z" />
+            <circle cx="100" cy="100" r="40" stroke="currentColor" strokeWidth="2" fill="none" />
+            <circle cx="100" cy="100" r="60" stroke="currentColor" strokeWidth="1" fill="none" />
+            <rect x="70" y="70" width="60" height="60" stroke="currentColor" strokeWidth="1" fill="none" transform="rotate(45 100 100)" />
+          </svg>
+        </div>
+
+        {/* Counter-clockwise Star - Red/Rose */}
+        <div className="absolute inset-0 text-rose-200/25 animate-spin-reverse">
+          <svg viewBox="0 0 200 200" fill="none" stroke="currentColor" className="w-full h-full">
+            <path d="M100 10 L115 75 L180 90 L115 105 L100 170 L85 105 L20 90 L85 75 Z" strokeWidth="1.5" />
+            <circle cx="100" cy="100" r="50" strokeWidth="1" />
+            <circle cx="100" cy="100" r="70" strokeWidth="0.5" />
+            <polygon points="70,100 100,70 130,100 100,130" strokeWidth="1" transform="rotate(0 100 100)" />
+          </svg>
+        </div>
+      </div>
+      {/* Floating Geometric Shapes Bottom Left */}
+      <div className="fixed bottom-0 left-0 w-[600px] h-[400px] opacity-20 pointer-events-none -z-30 animate-float">
+        <svg viewBox="0 0 300 200" className="w-full h-full text-red-800">
+          <path d="M0 200 L150 50 L300 200 Z" fill="none" stroke="currentColor" strokeWidth="1" />
+          <path d="M50 200 L150 100 L250 200 Z" fill="none" stroke="currentColor" strokeWidth="0.5" />
+        </svg>
       </div>
 
-      {/* Header */}
-      <header className="bg-white/90 backdrop-blur-xl shadow-xl border-b border-white/20 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 flex justify-between items-center">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="relative">
-              <Flame className="w-8 sm:w-10 h-8 sm:h-10 text-orange-600 drop-shadow-lg" />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-300 rounded-full animate-pulse"></div>
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                PujaConnect Agent
-              </h1>
-              <p className="text-sm text-slate-600 hidden sm:block font-medium">Priest Onboarding Portal</p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="group flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-4 sm:px-6 py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-red-200/50 hover:-translate-y-0.5 font-semibold"
-          >
-            <LogOut className="w-4 sm:w-5 h-4 sm:h-5 transition-transform group-hover:rotate-12" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-      </header>
+      <Navbar userData={userData} onLogout={handleLogout} />
 
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        {userData && (
-          <div className="mb-8 sm:mb-12">
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 sm:p-8 hover:shadow-3xl transition-all duration-300">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-2xl animate-pulse-glow">
-                  🙏
-                </div>
-                <div>
-                  <h2 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                    Welcome, {userData.user_full_name}!
-                  </h2>
-                  <p className="text-sm sm:text-lg text-slate-600 font-medium mt-1">
-                    Onboard and manage priests in your spiritual network
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-100">
-                <p className="text-orange-800 text-sm font-medium">
-                  ✨ Ready to expand your network? Register new priests and track your commission earnings!
-                </p>
-              </div>
-              {statsError && (
-                <div className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4">
-                  <p className="text-red-800 text-sm font-medium">
-                    ⚠️ {statsError}
-                  </p>
-                  <button
-                    onClick={loadDashboardStats}
-                    className="mt-2 text-red-600 hover:text-red-700 text-sm font-semibold underline"
-                  >
-                    Retry loading statistics
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32">
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          {/* Today's Survey */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Today's Survey</p>
-                <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-2">
-                  {isLoadingStats ? '...' : stats.todaySurvey}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                📋
-              </div>
+        {/* --- Header Section --- */}
+        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 relative">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-0 bg-orange-100 rounded-full text-orange-800 text-xs font-bold uppercase tracking-widest mb-3 border border-orange-200">
+              <span className="w-2 h-2 rounded-full bg-orange-600 animate-pulse"></span>
+              Live Dashboard
             </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-purple-200/20 to-pink-300/20 rounded-full blur-xl"></div>
-          </div>
+            <h1 className="text-5xl flex md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-stone-800 to-stone-600 drop-shadow-sm">
+              <div className='mt-4 font-sacred font-bold  '>Pranam, {userData?.user_full_name?.split(' ')[0] || 'Agent'}</div>
 
-          {/* Total Survey */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Total Survey</p>
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">
-                  {isLoadingStats ? '...' : stats.totalSurvey}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                📊
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-blue-200/20 to-indigo-300/20 rounded-full blur-xl"></div>
-          </div>
+              <div className=''> <img src={flameIcon} alt="flame" className=" w-20 h-20" /></div>
 
-          {/* Total Registered */}
-          {/* <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Total Registered</p>
-                <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-2">{stats.totalRegistered}</p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                👨‍🔬
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-blue-200/20 to-indigo-300/20 rounded-full blur-xl"></div>
-          </div> */}
-
-          {/* Approved */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Approved</p>
-                <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-2">
-                  {isLoadingStats ? '...' : stats.approved}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                ✅
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-green-200/20 to-emerald-300/20 rounded-full blur-xl"></div>
-          </div>
-
-          {/* Pending */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Pending</p>
-                <p className="text-2xl sm:text-3xl font-bold text-yellow-600 mt-2">
-                  {isLoadingStats ? '...' : stats.pending}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-yellow-100 to-amber-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                ⏳
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-yellow-200/20 to-amber-300/20 rounded-full blur-xl"></div>
-          </div>
-
-          {/* Rejected */}
-          <div className="group bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 border border-white/20 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-400/10 to-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 text-xs font-semibold uppercase tracking-wide">Rejected</p>
-                <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-2">
-                  {isLoadingStats ? '...' : stats.rejected}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center text-2xl animate-pulse-glow">
-                ❌
-              </div>
-            </div>
-            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-br from-red-200/20 to-rose-300/20 rounded-full blur-xl"></div>
+            </h1>
+            <p className="text-stone-500 font-medium text-lg mt-2 max-w-xl">
+              Manage your spiritual network. Monitor registrations and activity in real-time.
+            </p>
           </div>
 
 
-        </div>
-
-        {/* Actions Bar */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 sm:p-8 mb-8 sm:mb-12 border border-white/20 hover:shadow-2xl transition-all duration-300">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center justify-between">
-            <div className="flex-1 relative w-full sm:w-auto group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-orange-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search by name, phone, or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all duration-200 text-lg bg-slate-50 hover:bg-white group-focus-within:bg-white"
-              />
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
-            </div>
-
-            <div className="relative group">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'approved' | 'pending' | 'rejected')}
-                className="w-full sm:w-auto px-4 py-4 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-100 transition-all duration-200 text-lg bg-slate-50 hover:bg-white appearance-none pr-10 font-medium"
-              >
-                <option value="all">All Status</option>
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-orange-500/10 to-red-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
-            </div>
-
+          <div className='pb-10'>
             <button
               onClick={() => navigate('/priest-registration')}
-              className="group flex items-center gap-3 bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 sm:px-8 py-4 rounded-xl hover:from-orange-600 hover:to-red-700 transition-all duration-300 shadow-lg shadow-orange-200/50 hover:shadow-xl hover:shadow-orange-300/60 hover:-translate-y-0.5 font-semibold text-lg whitespace-nowrap w-full sm:w-auto justify-center"
+              className="group relative overflow-hidden bg-gradient-to-r from-orange-600 to-red-600 text-white pl-8 pr-10 py-4 text-lg font-bold shadow-xl shadow-orange-900/20 clip-hex-btn transition-transform duration-300 hover:scale-105"
             >
-              <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
-              Register Priest
+              <div className="absolute inset-0 bg-black/40 -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+              <div className="flex items-center gap-3 relative z-10">
+                <Plus className="w-6 h-6" />
+                <span>New Registration</span>
+              </div>
             </button>
           </div>
+
         </div>
 
-        {/* Priests Table */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden border border-white/20 hover:shadow-2xl transition-all duration-300">
-          <div className="min-w-full overflow-x-auto">
-            <table className="w-full text-sm sm:text-base border-collapse">
+        {/* --- 3D Stats Cards --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 perspective-1000">
+          <StatCard3D
+            label="Activity Today"
+            value={stats.todaySurvey}
+            icon={<Clock />}
+            trend="+12%"
+            color="text-blue-600"
+            delay={0}
+          />
+          <StatCard3D
+            label="Total Surveys"
+            value={stats.totalSurvey}
+            icon={<LayoutGrid />}
+            trend="+5%"
+            color="text-indigo-600"
+            delay={100}
+          />
+          <StatCard3D
+            label="Approved Priests"
+            value={stats.approved}
+            icon={<Check />}
+            trend="High Quality"
+            color="text-emerald-600"
+            delay={200}
+          />
+          <StatCard3D
+            label="Earnings (₹)"
+            value={(stats.commissionEarned).toLocaleString()}
+            icon={<Wallet />}
+            trend="Available"
+            color="text-amber-600"
+            delay={300}
+          />
+        </div>
+
+        {/* --- Controls & Table Container --- */}
+        <div className="stone-card rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 border border-white/50">
+
+          {/* Table Controls */}
+          <div className="p-6 border-b border-stone-100 bg-gradient-to-r from-stone-50 to-white flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by name, phone, or location..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 stone-inset bg-stone-50 text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all"
+              />
+            </div>
+
+            <div className="flex bg-stone-100 p-1 rounded-lg stone-inset gap-1">
+              {['all', 'approved', 'pending', 'rejected'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status as any)}
+                  className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-all duration-300
+                    ${filterStatus === status
+                      ? 'bg-white text-orange-700 shadow-md transform scale-105'
+                      : 'text-stone-500 hover:text-stone-700'}`
+                  }
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* --- THE GEOMETRIC TABLE --- */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gradient-to-r from-orange-500 via-red-500 to-amber-500 text-white">
-                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide whitespace-nowrap align-middle">Priest Name</th>
-                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden sm:table-cell whitespace-nowrap align-middle">Contact</th>
-                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden md:table-cell whitespace-nowrap align-middle">Experience</th>
-                  <th className="px-4 sm:px-6 py-5 text-left font-bold tracking-wide hidden lg:table-cell whitespace-nowrap align-middle">Location</th>
-                  <th className="px-4 sm:px-6 py-5 text-center font-bold tracking-wide whitespace-nowrap align-middle">Status</th>
-                  <th className="px-4 sm:px-6 py-5 text-center font-bold tracking-wide whitespace-nowrap align-middle">Actions</th>
+                <tr className="bg-stone-100/50 text-stone-500 text-xs uppercase tracking-widest font-bold border-b border-stone-200">
+                  <th className="p-6 pl-8 font-sacred text-sm text-stone-700">Priest Identity</th>
+                  <th className="p-6">Contact Info</th>
+                  <th className="p-6">Specialization</th>
+                  <th className="p-6">Location</th>
+                  <th className="p-6">Status</th>
+                  <th className="p-6 text-right pr-8">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredPriests.length > 0 ? (
-                  filteredPriests.map((priest) => (
-                    <tr key={priest.id} className="group hover:bg-gradient-to-r hover:from-orange-50/50 hover:to-amber-50/50 transition-all duration-200">
-                      <td className="px-4 sm:px-6 py-4 align-middle">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 flex-shrink-0 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-lg">
+              <tbody className="divide-y divide-stone-100">
+                {filtered.length > 0 ? (
+                  filtered.map((priest, idx) => (
+                    <tr
+                      key={priest.id}
+                      className="table-row-animate group bg-white hover:bg-orange-50/20"
+                      style={{ transitionDelay: `${idx * 50}ms` }}
+                    >
+                      <td className="p-6 pl-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-amber-200 text-orange-800 flex items-center justify-center font-sacred text-xl font-bold shadow-inner border border-orange-200 transform group-hover:rotate-6 transition-transform">
                             {priest.priestName.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800 text-sm sm:text-base group-hover:text-orange-600 transition-colors">
+                            <div className="font-sacred font-bold text-lg text-stone-800 group-hover:text-orange-700 transition-colors">
                               {priest.priestName}
-                            </p>
-                            <p className="text-xs text-slate-500 sm:hidden">{priest.priestPhone}</p>
-                            <p className="text-xs text-slate-500 hidden sm:block">
-                              {priest.specialization.slice(0, 1).join(', ')}
-                            </p>
+                            </div>
+                            <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mt-0.5">
+                              ID: {priest.agentId}-{priest.id}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 hidden sm:table-cell align-middle whitespace-nowrap">
-                        <div className="text-sm">
-                          <p className="font-semibold text-slate-800">{priest.priestPhone}</p>
-                          <p className="text-slate-500 text-xs">{priest.priestEmail}</p>
+
+                      <td className="p-6">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestPhone}</span>
+                          <span className="text-sm text-stone-400 truncate max-w-[150px]">{priest.priestEmail}</span>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 hidden md:table-cell align-middle whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-3 py-2 rounded-xl text-sm font-bold border border-blue-200">
-                          <span>{priest.experience}</span>
-                          <span className="text-xs">yrs</span>
-                        </span>
+
+                      <td className="p-6">
+                        <div className="flex flex-wrap gap-2 max-w-[250px]">
+                          <span className="bg-stone-100 text-stone-600 px-2 py-1 text-xs font-bold uppercase rounded border border-stone-200">{priest.experience} Yrs</span>
+                          {priest.specialization.slice(0, 2).map((s, i) => (
+                            <span key={i} className="bg-orange-50 text-orange-700 px-2 py-1 text-xs font-bold uppercase rounded border border-orange-100">{s}</span>
+                          ))}
+                          {priest.specialization.length > 2 && <span className="text-xs text-stone-400 py-1">+ {priest.specialization.length - 2}</span>}
+                        </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 hidden lg:table-cell text-sm text-slate-600 font-medium align-middle whitespace-nowrap">
-                        {priest.location}
+
+                      <td className="p-6">
+                        <span className="text-stone-700 font-medium">{priest.location}</span>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 align-middle text-center whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border-2 transition-all duration-200 ${getStatusColor(priest.status)}`}>
-                          {getStatusIcon(priest.status)}
-                          <span className="hidden sm:inline capitalize">{priest.status}</span>
-                        </span>
+
+                      <td className="p-6">
+                        <StatusBadge status={priest.status} />
                       </td>
-                      <td className="px-4 sm:px-6 py-4 align-middle">
-                        <div className="flex justify-center items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedPriest(priest);
-                              setShowViewModal(true);
-                              setIsEditMode(false);
-                            }}
-                            className="group/btn relative bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 p-2 sm:p-3 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border border-blue-200 hover:border-blue-300"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 sm:w-5 h-4 sm:h-5 transition-transform group-hover/btn:scale-110" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedPriest(priest);
-                              setShowViewModal(true);
-                              setIsEditMode(true);
-                            }}
-                            className="group/btn relative bg-orange-50 hover:bg-orange-100 text-orange-600 hover:text-orange-700 p-2 sm:p-3 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border border-orange-200 hover:border-orange-300"
-                            title="Edit Priest"
-                          >
-                            <Edit2 className="w-4 sm:w-5 h-4 sm:h-5 transition-transform group-hover/btn:scale-110" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm('Are you sure you want to delete this priest?')) {
-                                handleDeletePriest(priest.id);
-                              }
-                            }}
-                            className="group/btn relative bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 p-2 sm:p-3 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border border-red-200 hover:border-red-300"
-                            title="Delete Priest"
-                          >
-                            <Trash2 className="w-4 sm:w-5 h-4 sm:h-5 transition-transform group-hover/btn:scale-110" />
-                          </button>
+
+                      <td className="p-6 pr-8 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                          <ActionButton
+                            icon={<Eye size={16} />}
+                            onClick={() => { setSelectedPriest(priest); setShowViewModal(true); setIsEditMode(false); }}
+                            label="View"
+                          />
+                          <ActionButton
+                            icon={<Edit2 size={16} />}
+                            onClick={() => { setSelectedPriest(priest); setShowViewModal(true); setIsEditMode(true); }}
+                            label="Edit"
+                          />
+                          <ActionButton
+                            icon={<Trash2 size={16} />}
+                            onClick={() => { if (confirm('Delete?')) handleDeletePriest(priest.id); }}
+                            danger
+                            label="Delete"
+                          />
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center align-middle">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-24 h-24 bg-gradient-to-br from-slate-100 to-slate-200 rounded-full flex items-center justify-center">
-                          <span className="text-4xl">🕉️</span>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-lg font-semibold text-slate-600">No priests registered yet</p>
-                          <p className="text-sm text-slate-500">Click "Register Priest" to onboard your first priest to the platform</p>
-                        </div>
-                        <button
-                          onClick={() => navigate('/priest-registration')}
-                          className="mt-4 flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-3 rounded-xl hover:from-orange-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-orange-200/50 hover:-translate-y-0.5 font-semibold"
-                        >
-                          <Plus className="w-5 h-5" />
-                          Register Your First Priest
-                        </button>
+                    <td colSpan={6} className="py-20 text-center">
+                      <div className="inline-block p-6 rounded-full bg-stone-50 stone-inset mb-4">
+                        <Sparkles className="w-10 h-10 text-stone-300" />
                       </div>
+                      <h3 className="text-xl font-sacred font-bold text-stone-600">No priests found</h3>
+                      <p className="text-stone-400 mt-2">Try adjusting your search or filters.</p>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Table Footer */}
+          <div className="p-4 bg-stone-50 border-t border-stone-200 flex justify-between items-center text-xs font-bold text-stone-400 uppercase tracking-widest">
+            <span>Showing {filtered.length} Records</span>
+            <div className="flex gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+            </div>
+          </div>
         </div>
 
       </main>
 
-      {/* Add Priest Modal */}
-      {showAddModal && (
-        <AddPriestModal
-          onClose={() => setShowAddModal(false)}
-          onAdd={handleAddPriest}
-        />
-      )}
-
-      {/* View/Edit Priest Modal */}
+      {/* Modals */}
+      {showAddModal && <AddPriestModal onClose={() => setShowAddModal(false)} onAdd={handleAddPriest} />}
       {showViewModal && selectedPriest && (
         <ViewEditPriestModal
           priest={selectedPriest}
           isEditMode={isEditMode}
-          onClose={() => {
-            setShowViewModal(false);
-            setIsEditMode(false);
-          }}
+          onClose={() => { setShowViewModal(false); setIsEditMode(false); }}
           onEdit={handleEditPriest}
-          onDelete={() => {
-            if (confirm('Are you sure you want to delete this priest?')) {
-              handleDeletePriest(selectedPriest.id);
-            }
-          }}
+          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.id); }}
         />
       )}
     </div>
   );
 };
 
-// Add Priest Modal Component
-interface AddPriestModalProps {
-  onClose: () => void;
-  onAdd: (priest: Omit<RegisteredPriest, 'id' | 'agentId'>) => void;
-}
+// --- SUB-COMPONENTS ---
 
-const AddPriestModal: React.FC<AddPriestModalProps> = ({ onClose, onAdd }) => {
-  const [formData, setFormData] = useState({
-    priestName: '',
-    priestPhone: '',
-    priestEmail: '',
-    experience: 0,
-    specialization: '',
-    education: '',
-    certification: '',
-    location: '',
-    bankAccount: '',
-    notes: '',
-  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.priestName || !formData.priestPhone || !formData.priestEmail || !formData.location) {
-      alert('Please fill in all required fields');
-      return;
+const StatCard3D = ({ label, value, icon, color, trend, delay }: any) => {
+  // Color configurations matching your palette
+  const cardColors: any = {
+    'text-blue-600': {
+      bg: 'from-blue-50 to-indigo-50',
+      border: 'border-blue-100',
+      iconBg: 'bg-blue-50',
+      shadow: 'hover:shadow-[10px_10px_0px_0px_rgba(59,130,246,0.15)]',
+      hoverText: 'group-hover:text-blue-600'
+    },
+    'text-indigo-600': {
+      bg: 'from-indigo-50 to-purple-50',
+      border: 'border-indigo-100',
+      iconBg: 'bg-indigo-50',
+      shadow: 'hover:shadow-[10px_10px_0px_0px_rgba(99,102,241,0.15)]',
+      hoverText: 'group-hover:text-indigo-600'
+    },
+    'text-emerald-600': {
+      bg: 'from-emerald-50 to-teal-50',
+      border: 'border-emerald-100',
+      iconBg: 'bg-emerald-50',
+      shadow: 'hover:shadow-[10px_10px_0px_0px_rgba(16,185,129,0.15)]',
+      hoverText: 'group-hover:text-emerald-600'
+    },
+    'text-amber-600': {
+      bg: 'from-amber-50 to-orange-50',
+      border: 'border-amber-100',
+      iconBg: 'bg-amber-50',
+      shadow: 'hover:shadow-[10px_10px_0px_0px_rgba(245,158,11,0.15)]',
+      hoverText: 'group-hover:text-amber-600'
     }
-
-    const specializations = formData.specialization
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => s);
-
-    const certifications = formData.certification
-      .split(',')
-      .map(c => c.trim())
-      .filter(c => c);
-
-    onAdd({
-      priestName: formData.priestName,
-      priestPhone: formData.priestPhone,
-      priestEmail: formData.priestEmail,
-      experience: formData.experience,
-      specialization: specializations,
-      education: formData.education,
-      certification: certifications,
-      location: formData.location,
-      bankAccount: formData.bankAccount || undefined,
-      status: 'pending',
-      registeredDate: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-      notes: formData.notes || undefined,
-    });
   };
 
+  const colorConfig = cardColors[color] || cardColors['text-amber-600'];
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full my-8">
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">Register New Priest</h2>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-1 rounded transition"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div
+      className={`group relative rounded-2xl border-2 ${colorConfig.border} bg-gradient-to-br ${colorConfig.bg}
+                 transition-all duration-300 ease-out
+                 shadow-[6px_6px_0px_0px_#E6DCC8] 
+                 ${colorConfig.shadow}
+                 hover:-translate-y-1.5 overflow-hidden
+                 h-48 p-6 flex flex-col justify-between`}
+      style={{ animationDelay: `${delay}ms`, opacity: 1 }}
+    >
+      {/* --- SHINY EFFECT --- */}
+      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-[150%] transition-transform duration-1000 ease-in-out z-0 pointer-events-none">
+        <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/60 to-transparent -skew-x-12"></div>
+      </div>
+
+      {/* Abstract Geometric Decoration (Low opacity overlay) */}
+      <div className={`absolute -right-10 -top-10 w-32 h-32 bg-gradient-to-br ${colorConfig.iconBg} to-transparent rounded-full opacity-30 pointer-events-none group-hover:scale-110 transition-transform duration-500`}></div>
+      <div className={`absolute right-4 top-4 w-12 h-12 rounded-full opacity-10 ${color.replace('text-', 'bg-')} blur-xl group-hover:opacity-25 transition-opacity duration-500`}></div>
+
+      {/* Header Section (Icon + Label) */}
+      <div className="flex justify-between items-start relative z-10">
+        <p className="text-stone-500 text-[10px] font-bold uppercase tracking-[0.2em] pt-1">{label}</p>
+
+        {/* 3D Icon Container */}
+        <div className={`
+          ${color} ${colorConfig.iconBg} p-3.5 rounded-xl border-2 ${colorConfig.border}
+          shadow-[4px_4px_0px_0px_#E6DCC8] 
+          group-hover:shadow-[4px_4px_0px_0px_rgba(217,119,6,0.2)]
+          group-hover:rotate-12 group-hover:scale-110
+          transition-all duration-300
+        `}>
+          {React.cloneElement(icon, { size: 24, strokeWidth: 2.5 })}
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Priest Name */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Priest Full Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.priestName}
-                onChange={(e) => setFormData({ ...formData, priestName: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="Pandit Name"
-              />
-            </div>
+      {/* Bottom Section (Value + Trend) */}
+      <div className="relative z-10">
+        <h3 className={`text-5xl font-mono font-bold text-stone-800 tracking-tighter ${colorConfig.hoverText} transition-colors`}>
+          {value}
+        </h3>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Phone Number *
-              </label>
-              <input
-                type="tel"
-                required
-                value={formData.priestPhone}
-                onChange={(e) => setFormData({ ...formData, priestPhone: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="10-digit phone"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.priestEmail}
-                onChange={(e) => setFormData({ ...formData, priestEmail: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="priest@email.com"
-              />
-            </div>
-
-            {/* Location */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Location *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="City/Region"
-              />
-            </div>
-
-            {/* Experience */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Years of Experience
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData.experience}
-                onChange={(e) => setFormData({ ...formData, experience: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="0"
-              />
-            </div>
-
-            {/* Education */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Education
-              </label>
-              <input
-                type="text"
-                value={formData.education}
-                onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                placeholder="Vedic Scholar, etc"
-              />
-            </div>
-          </div>
-
-          {/* Specializations */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Specializations (comma-separated)
-            </label>
-            <input
-              type="text"
-              value={formData.specialization}
-              onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              placeholder="Vedic Rituals, Marriage Ceremonies, etc"
-            />
-          </div>
-
-          {/* Certifications */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Certifications (comma-separated)
-            </label>
-            <input
-              type="text"
-              value={formData.certification}
-              onChange={(e) => setFormData({ ...formData, certification: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              placeholder="Vedic Studies Certificate, etc"
-            />
-          </div>
-
-          {/* Bank Account */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Bank Account Number
-            </label>
-            <input
-              type="text"
-              value={formData.bankAccount}
-              onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              placeholder="Bank account for commission"
-            />
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              placeholder="Additional notes about the priest"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:shadow-lg transition font-semibold"
-            >
-              Register Priest
-            </button>
-          </div>
-        </form>
+        {/* Optional Trend Section (Uncomment if needed) */}
+        {/* <div className="flex items-center gap-2 mt-2">
+           <span className="text-emerald-600 font-bold text-xs flex items-center bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+             {trend}
+           </span>
+           <span className="text-xs font-semibold text-stone-400 opacity-70">vs last month</span>
+        </div> */}
       </div>
     </div>
   );
 };
 
-// View/Edit Priest Modal Component
-interface ViewEditPriestModalProps {
-  priest: RegisteredPriest;
-  isEditMode: boolean;
-  onClose: () => void;
-  onEdit: (priest: RegisteredPriest) => void;
-  onDelete: () => void;
-}
 
-const ViewEditPriestModal: React.FC<ViewEditPriestModalProps> = ({
-  priest,
-  isEditMode,
-  onClose,
-  onEdit,
-  onDelete,
-}) => {
-  const [formData, setFormData] = useState(priest);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.priestName || !formData.priestPhone || !formData.priestEmail || !formData.location) {
-      alert('Please fill in all required fields');
-      return;
-    }
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles: any = {
+    approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    pending: "bg-amber-100 text-amber-800 border-amber-200",
+    rejected: "bg-red-100 text-red-800 border-red-200"
+  };
 
-    onEdit({
-      ...formData,
-      updatedAt: new Date().toISOString().split('T')[0],
-    });
+  // Geometric icons for status
+  const icons: any = {
+    approved: <div className="w-2 h-2 rotate-45 bg-emerald-600" />,
+    pending: <div className="w-2 h-2 rounded-full bg-amber-600 animate-pulse" />,
+    rejected: <div className="w-2 h-2 bg-red-600 clip-hex-btn" />
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full my-8">
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 px-6 py-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">
-            {isEditMode ? 'Edit Priest Registration' : 'Priest Details'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-1 rounded transition"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border ${styles[status]} font-bold text-xs uppercase tracking-wider shadow-sm`}>
+      {icons[status]}
+      {status}
+    </div>
+  );
+};
+
+const ActionButton = ({ onClick, icon, danger, label }: any) => (
+  <button
+    onClick={onClick}
+    title={label}
+    className={`p-2.5 rounded-lg transition-all duration-200 hover:scale-110 shadow-sm border
+      ${danger
+        ? 'bg-red-50 text-red-600 border-red-100 hover:bg-red-600 hover:text-white hover:shadow-red-200'
+        : 'bg-white text-stone-500 border-stone-200 hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-orange-200'}`
+    }
+  >
+    {icon}
+  </button>
+);
+
+// --- MODALS (Enhanced) ---
+
+const ModalFrame = ({ children, title, onClose }: any) => (
+  <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300">
+    <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl animate-[float_0.4s_ease-out] flex flex-col border border-white/50 relative">
+      {/* Decorative top border */}
+      <div className="h-2 w-full bg-gradient-to-r from-orange-500 via-red-500 to-orange-500"></div>
+
+      <div className="px-8 py-6 flex justify-between items-center border-b border-stone-100 bg-stone-50/50">
+        <h2 className="text-3xl font-sacred font-bold text-stone-800">{title}</h2>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-stone-200 text-stone-500 transition-colors"><X size={20} /></button>
+      </div>
+
+      <div className="p-8 overflow-y-auto bg-white flex-1 relative">
+        {/* Background pattern in modal */}
+        <div className="absolute top-0 right-0 w-64 h-64 opacity-5 pointer-events-none">
+          <svg viewBox="0 0 100 100" fill="currentColor"><circle cx="50" cy="50" r="40" /></svg>
         </div>
+        {children}
+      </div>
+    </div>
+  </div>
+);
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Priest Name</label>
-              {isEditMode ? (
-                <input
-                  type="text"
-                  value={formData.priestName}
-                  onChange={(e) => setFormData({ ...formData, priestName: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.priestName}</p>
-              )}
-            </div>
+const GeometricInput = ({ label, ...props }: any) => (
+  <div className="mb-1 group">
+    <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-orange-600">{label}</label>
+    <input
+      {...props}
+      className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 text-stone-800 font-medium rounded-lg focus:ring-2 focus:ring-orange-100 focus:border-orange-400 focus:outline-none transition-all stone-inset"
+    />
+  </div>
+);
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
-              {isEditMode ? (
-                <input
-                  type="tel"
-                  value={formData.priestPhone}
-                  onChange={(e) => setFormData({ ...formData, priestPhone: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.priestPhone}</p>
-              )}
-            </div>
+const AddPriestModal: React.FC<any> = ({ onClose, onAdd }) => {
+  const [f, setF] = useState({ priestName: '', priestPhone: '', priestEmail: '', experience: 0, specialization: '', education: '', certification: '', location: '', notes: '' });
+  const sub = (e: any) => { e.preventDefault(); onAdd({ ...f, specialization: f.specialization.split(','), certification: f.certification.split(','), status: 'pending', registeredDate: new Date().toISOString(), updatedAt: new Date().toISOString() }) };
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-              {isEditMode ? (
-                <input
-                  type="email"
-                  value={formData.priestEmail}
-                  onChange={(e) => setFormData({ ...formData, priestEmail: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.priestEmail}</p>
-              )}
-            </div>
+  return (
+    <ModalFrame title="New Registration" onClose={onClose}>
+      <form onSubmit={sub} className="space-y-6">
+        <div className="grid grid-cols-2 gap-6">
+          <GeometricInput label="Priest Name" required value={f.priestName} onChange={(e: any) => setF({ ...f, priestName: e.target.value })} placeholder="Full Name" />
+          <GeometricInput label="Mobile" required value={f.priestPhone} onChange={(e: any) => setF({ ...f, priestPhone: e.target.value })} placeholder="+91..." />
+          <GeometricInput label="Email" required type="email" value={f.priestEmail} onChange={(e: any) => setF({ ...f, priestEmail: e.target.value })} />
+          <GeometricInput label="City/Location" required value={f.location} onChange={(e: any) => setF({ ...f, location: e.target.value })} />
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <GeometricInput label="Experience (Yrs)" type="number" value={f.experience} onChange={(e: any) => setF({ ...f, experience: +e.target.value })} />
+          <GeometricInput label="Education" value={f.education} onChange={(e: any) => setF({ ...f, education: e.target.value })} />
+        </div>
+        <GeometricInput label="Specialization (comma sep)" value={f.specialization} onChange={(e: any) => setF({ ...f, specialization: e.target.value })} />
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Location</label>
-              {isEditMode ? (
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.location}</p>
-              )}
-            </div>
+        <div className="flex gap-4 pt-6 mt-2 border-t border-stone-100">
+          <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-lg border-2 border-stone-200 font-bold text-stone-500 hover:bg-stone-50 hover:text-stone-700 hover:border-stone-300 transition-all">CANCEL</button>
+          <button type="submit" className="flex-1 py-3.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold hover:shadow-lg hover:shadow-orange-200 hover:-translate-y-0.5 transition-all">REGISTER PRIEST</button>
+        </div>
+      </form>
+    </ModalFrame>
+  );
+};
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Experience (years)</label>
-              {isEditMode ? (
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.experience}
-                  onChange={(e) => setFormData({ ...formData, experience: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.experience} years</p>
-              )}
-            </div>
+const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdit, onDelete }) => {
+  const [f, setF] = useState(priest);
+  const sub = (e: any) => { e.preventDefault(); onEdit({ ...f, updatedAt: new Date().toISOString() }) };
 
+  return (
+    <ModalFrame title={isEditMode ? 'Edit Details' : 'Priest Profile'} onClose={onClose}>
+      <form onSubmit={sub} className="space-y-6">
+        {!isEditMode && (
+          <div className="flex items-center gap-6 mb-8 pb-8 border-b border-stone-100">
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">{priest.priestName.charAt(0)}</div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Education</label>
-              {isEditMode ? (
-                <input
-                  type="text"
-                  value={formData.education}
-                  onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                />
-              ) : (
-                <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.education}</p>
-              )}
+              <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.priestName}</h2>
+              <div className="mt-3"><StatusBadge status={priest.status} /></div>
             </div>
           </div>
+        )}
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Specializations</label>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={formData.specialization.join(', ')}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  specialization: e.target.value.split(',').map(s => s.trim()),
-                })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              />
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {formData.specialization.map((spec, idx) => (
-                  <span key={idx} className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm">
-                    {spec}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <GeometricInput disabled={!isEditMode} label="Name" value={f.priestName} onChange={(e: any) => setF({ ...f, priestName: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Phone" value={f.priestPhone} onChange={(e: any) => setF({ ...f, priestPhone: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Email" value={f.priestEmail} onChange={(e: any) => setF({ ...f, priestEmail: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Location" value={f.location} onChange={(e: any) => setF({ ...f, location: e.target.value })} />
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Certifications</label>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={formData.certification.join(', ')}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  certification: e.target.value.split(',').map(c => c.trim()),
-                })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              />
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {formData.certification.map((cert, idx) => (
-                  <span key={idx} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                    {cert}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Bank Account</label>
-            {isEditMode ? (
-              <input
-                type="text"
-                value={formData.bankAccount || ''}
-                onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value || undefined })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              />
-            ) : (
-              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.bankAccount || 'Not provided'}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
-            {isEditMode ? (
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'approved' | 'pending' | 'rejected' })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-              >
+          {isEditMode && (
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">Status</label>
+              <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-lg font-medium outline-none focus:ring-2 focus:ring-orange-100 stone-inset">
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
               </select>
-            ) : (
-              <p className={`px-4 py-2 rounded-lg inline-block text-sm font-semibold ${getStatusColor(formData.status)}`}>
-                {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
-              </p>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Notes</label>
-            {isEditMode ? (
-              <textarea
-                value={formData.notes || ''}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value || undefined })}
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-orange-600"
-                rows={3}
-              />
-            ) : (
-              <p className="px-4 py-2 bg-gray-50 rounded-lg text-gray-800">{formData.notes || 'No notes'}</p>
-            )}
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            {isEditMode ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:shadow-lg transition font-semibold"
-                >
-                  Save Changes
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold"
-                >
-                  Delete
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold"
-                >
-                  Close
-                </button>
-              </>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-4 pt-6 mt-4 border-t border-stone-100">
+          {isEditMode ? (
+            <>
+              <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-lg border-2 border-stone-200 font-bold text-stone-500 hover:bg-stone-50 transition-all">CANCEL</button>
+              <button type="submit" className="flex-1 py-3.5 rounded-lg bg-orange-600 text-white font-bold hover:shadow-lg hover:shadow-orange-200 hover:-translate-y-0.5 transition-all">SAVE CHANGES</button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={onDelete} className="px-8 py-3.5 rounded-lg bg-red-50 text-red-600 font-bold border border-red-100 hover:bg-red-100 hover:border-red-200 transition-all">DELETE</button>
+              <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-lg bg-stone-800 text-white font-bold hover:bg-stone-900 transition-all shadow-lg shadow-stone-200">CLOSE</button>
+            </>
+          )}
+        </div>
+      </form>
+    </ModalFrame>
   );
 };
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'approved':
-      return 'bg-green-100 text-green-800 border-green-200';
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'rejected':
-      return 'bg-red-100 text-red-800 border-red-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-}

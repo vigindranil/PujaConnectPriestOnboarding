@@ -39,3 +39,10 @@ body {
   animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes spin-reverse { 
+  from { transform: rotate(360deg); } 
+  to { transform: rotate(0deg); } 
+}
+.animate-spin-reverse { 
+  animation: spin-reverse 60s linear infinite; 
+}

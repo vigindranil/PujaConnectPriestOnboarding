@@ -109,6 +109,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const [locationError, setLocationError] = useState('');
   const [pujas, setPujas] = useState<ApiPujaType[]>([]);
   const [loadingPujas, setLoadingPujas] = useState(false);
+  const [testingMode, setTestingMode] = useState(false); // Set to false for production
+
 
   // Dropdown visibility states
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
@@ -219,6 +221,8 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   };
 
   const validateCurrentStep = (): boolean => {
+    if (testingMode) return true;
+
     const errors: Record<string, string> = {};
     let isValid = true;
 
@@ -439,6 +443,13 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const handleStep2Complete = async () => {
     if (!formData.mobileNumber || !formData.otpVerified) {
       return false;
+    }
+
+    // In testing mode, bypass the registration API call
+    if (testingMode) {
+      setRegisteredUserId(101); // Mock user ID for testing
+      showSuccess('Testing Mode 🧪', 'Registration API bypassed - using mock data');
+      return true;
     }
 
     try {
@@ -1236,6 +1247,9 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   };
 
   const canProceed = () => {
+
+    if (testingMode) return true;
+
     // Only check basic requirements, don't run validation here to avoid side effects
     switch (currentStep) {
       case 1:
@@ -1302,6 +1316,18 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
           </div>
           <div className="w-10"></div>
         </div>
+
+        {/* Testing Mode Banner - ADD THIS HERE */}
+        {testingMode && (
+          <div className="bg-yellow-100 border-2 border-yellow-400 px-4 py-2">
+            <div className="max-w-3xl mx-auto">
+              <p className="text-center text-yellow-800 font-bold text-sm">
+                🧪 TESTING MODE ACTIVE - All validations and API calls bypassed
+              </p>
+            </div>
+          </div>
+        )}
+
 
         {/* Progress Bar */}
         <div className="bg-gradient-to-r from-orange-100 to-amber-100 h-2">
@@ -1471,6 +1497,12 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 {formData.mobileNumber.length === 10 && !otpSent && (
                   <button
                     onClick={async () => {
+                      if (testingMode) {
+                        setOtpSent(true);
+                        setOtpInput('');
+                        showInfo('Testing Mode 🧪', 'OTP verification bypassed for testing');
+                        return;
+                      }
                       setLoadingOtp(true);
                       setOtpError('');
                       try {
@@ -1581,6 +1613,13 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                   <button
                     onClick={async () => {
                       if (otpInput.length === 6) {
+                        if (testingMode) {
+                          handleInputChange('otpVerified', true);
+                          handleInputChange('otpCode', otpInput);
+                          setOtpInput('');
+                          showSuccess('Testing Mode 🧪', 'OTP verification bypassed');
+                          return;
+                        }
                         setLoadingOtp(true);
                         setOtpError('');
                         try {
@@ -1811,6 +1850,83 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                       </label>
                     ))}
                   </div>
+                </div>
+
+                {/* ADD PHOTO UPLOAD HERE - After gender selection */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">Profile Photo *</label>
+                  <input
+                    type="file"
+                    id="priestPhotoInput"
+                    accept="image/jpeg,image/png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Validate file size (max 5MB)
+                        if (file.size > 5 * 1024 * 1024) {
+                          showError('File Too Large ⚠️', 'Maximum file size is 5MB');
+                          return;
+                        }
+
+                        // Validate file type
+                        if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                          showError('Invalid File Type ⚠️', 'Only JPG and PNG files are allowed');
+                          return;
+                        }
+
+                        // Convert file to base64
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const base64String = event.target?.result as string;
+                          handleInputChange('priestPhoto', base64String);
+                          showSuccess('Photo Uploaded ✓', 'Your profile photo has been added');
+                        };
+                        reader.onerror = () => {
+                          showError('Upload Failed ❌', 'Could not read the file');
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => document.getElementById('priestPhotoInput')?.click()}
+                    className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer group"
+                  >
+                    {formData.priestPhoto ? (
+                      <div className="relative">
+                        <img
+                          src={formData.priestPhoto}
+                          alt="Priest"
+                          className="w-32 h-32 rounded-full mx-auto object-cover border-4 border-orange-200"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleInputChange('priestPhoto', '');
+                            (document.getElementById('priestPhotoInput') as HTMLInputElement).value = '';
+                          }}
+                          className="absolute top-0 right-1/2 transform translate-x-16 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-all"
+                        >
+                          <span className="text-xs font-bold">✕</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-100 transition-all">
+                          <User className="w-8 h-8 text-gray-400 group-hover:text-orange-600" />
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Upload Your Photo</h3>
+                        <p className="text-sm text-gray-600">Click to browse or drag and drop</p>
+                        <p className="text-xs text-gray-500 mt-2">JPG or PNG (Max 5MB)</p>
+                      </>
+                    )}
+                  </div>
+                  {validationErrors.priestPhoto && (
+                    <p className="text-sm text-red-500 mt-2 font-medium">
+                      {validationErrors.priestPhoto}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -2922,7 +3038,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         }
       `}</style>
       <AlertComponent />
-    </div>
+    </div >
   );
 }
 

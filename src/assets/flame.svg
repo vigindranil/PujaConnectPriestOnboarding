@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <!-- Define the colors based on the image -->
+    <color id="c-maroon" value="#691B24"/>
+    <color id="c-orange" value="#F48B46"/>
+    <color id="c-gold" value="#FDC652"/>
+    <color id="c-flame-1" value="#EA6B25"/>
+    <color id="c-flame-2" value="#FDCE14"/>
+    <color id="c-flame-3" value="#FFF6B5"/>
+
+    <!-- Define a Teardrop Shape for the pattern -->
+    <path id="teardrop" d="M 0 0 Q 3 5 0 10 Q -3 5 0 0 Z" fill="#FDC652" />
+  </defs>
+
+  <!-- 1. The Back Rim (Orange part) -->
+  <!-- This sits behind the main body -->
+  <path d="M 60 335 Q 200 370 340 335 Q 340 310 200 310 Q 60 310 60 335 Z" fill="#F48B46"/>
+
+  <path fill="#EA6B25">
+    <animate attributeName="d" 
+             dur="1.5s" 
+             repeatCount="indefinite"
+             values="
+               M 200 300 Q 155 240 165 180 Q 195 60 200 60 Q 205 60 235 180 Q 245 240 200 300 Z;
+               M 200 300 Q 145 240 155 180 Q 180 60 185 60 Q 200 80 225 180 Q 245 240 200 300 Z;
+               M 200 300 Q 165 240 175 180 Q 220 60 215 60 Q 210 80 245 180 Q 245 240 200 300 Z;
+               M 200 300 Q 155 240 165 180 Q 195 60 200 60 Q 205 60 235 180 Q 245 240 200 300 Z"/>
+  </path>
+
+  <!-- Middle Flame (Yellow) -->
+  <path fill="#FDCE14">
+      <animate attributeName="d" 
+               dur="1.5s" 
+               repeatCount="indefinite"
+               values="
+               M 200 290 Q 168 230 175 180 Q 196 120 200 120 Q 204 120 225 180 Q 232 230 200 290 Z;
+               M 200 290 Q 158 230 165 180 Q 185 120 190 120 Q 200 130 215 180 Q 232 230 200 290 Z;
+               M 200 290 Q 178 230 185 180 Q 215 120 210 120 Q 210 130 235 180 Q 232 230 200 290 Z;
+               M 200 290 Q 168 230 175 180 Q 196 120 200 120 Q 204 120 225 180 Q 232 230 200 290 Z"/>
+  </path>
+
+  <!-- Inner Flame (Pale) -->
+  <path fill="#FFF6B5" opacity="0.9">
+    <animate attributeName="d" 
+             dur="1.5s" 
+             repeatCount="indefinite"
+             values="
+             M 200 285 Q 180 230 182 190 Q 198 150 200 150 Q 202 150 218 190 Q 220 230 200 285 Z;
+             M 200 285 Q 175 230 172 190 Q 190 150 195 150 Q 200 160 208 190 Q 220 230 200 285 Z;
+             M 200 285 Q 185 230 192 190 Q 210 150 205 150 Q 205 160 228 190 Q 220 230 200 285 Z;
+             M 200 285 Q 180 230 182 190 Q 198 150 200 150 Q 202 150 218 190 Q 220 230 200 285 Z"/>
+  </path>
+
+
+  
+
+  <!-- 3. The Main Bowl Body (Maroon) -->
+  <!-- Left Side -->
+  <path d="M 60 335 
+           Q 60 365 100 400 
+           Q 150 440 200 440 
+           L 200 260 
+           Q 150 335 60 335 Z" 
+           fill="#691B24" stroke="none"/>
+           
+  <!-- Right Side (Mirrored) -->
+  <path d="M 340 335 
+           Q 340 365 300 400 
+           Q 250 440 200 440 
+           L 200 260 
+           Q 250 335 340 335 Z" 
+           fill="#691B24" stroke="none"/>
+
+  <!-- Central Divider Line (faint) -->
+  <line x1="200" y1="260" x2="200" y2="440" stroke="#7A252E" stroke-width="1" />
+
+  <!-- 4. Decorative Patterns (Gold) -->
+  
+  <!-- LEFT SIDE DECORATION -->
+  <g id="left-deco">
+    <!-- Top Curve Line -->
+    <path d="M 65 355 Q 120 375 195 305" fill="none" stroke="#FDC652" stroke-width="2"/>
+    
+    <!-- Top Row Dots -->
+    <g fill="#FDC652">
+      <circle cx="78" cy="362" r="2.5"/>
+      <circle cx="89" cy="363" r="2.5"/>
+      <circle cx="100" cy="363" r="2.5"/>
+      <circle cx="111" cy="362" r="2.5"/>
+      <circle cx="122" cy="360" r="2.5"/>
+      <circle cx="133" cy="357" r="2.5"/>
+      <circle cx="144" cy="353" r="2.5"/>
+      <circle cx="155" cy="348" r="2.5"/>
+      <circle cx="165" cy="342" r="2.5"/>
+      <circle cx="175" cy="335" r="2.5"/>
+      <circle cx="184" cy="327" r="2.5"/>
+    </g>
+
+    <!-- Middle Row Teardrops -->
+    <!-- Using transforms to rotate them along the curve -->
+    <use href="#teardrop" x="80" y="380" transform="rotate(-10 80 380) scale(0.9)"/>
+    <use href="#teardrop" x="92" y="380" transform="rotate(-5 92 380) scale(0.9)"/>
+    <use href="#teardrop" x="105" y="378" transform="rotate(0 105 378) scale(0.9)"/>
+    <use href="#teardrop" x="118" y="375" transform="rotate(5 118 375) scale(0.9)"/>
+    <use href="#teardrop" x="130" y="370" transform="rotate(10 130 370) scale(0.9)"/>
+    <use href="#teardrop" x="142" y="364" transform="rotate(15 142 364) scale(0.9)"/>
+    <use href="#teardrop" x="153" y="356" transform="rotate(25 153 356) scale(0.9)"/>
+    <use href="#teardrop" x="163" y="347" transform="rotate(35 163 347) scale(0.9)"/>
+    
+    <!-- Bottom Row Teardrops (Larger/Spaced) -->
+    <use href="#teardrop" x="85" y="405" transform="rotate(-15 85 405) scale(1.1)"/>
+    <use href="#teardrop" x="102" y="402" transform="rotate(-5 102 402) scale(1.1)"/>
+    <use href="#teardrop" x="119" y="396" transform="rotate(5 119 396) scale(1.1)"/>
+    <use href="#teardrop" x="135" y="388" transform="rotate(15 135 388) scale(1.1)"/>
+    <use href="#teardrop" x="150" y="378" transform="rotate(25 150 378) scale(1.1)"/>
+    <use href="#teardrop" x="163" y="368" transform="rotate(35 163 368) scale(1.1)"/>
+
+  </g>
+
+  <!-- RIGHT SIDE DECORATION (Mirrored) -->
+  <!-- We flip the X axis around the center point (200) -->
+  <g transform="translate(400, 0) scale(-1, 1)">
+     <use href="#left-deco" />
+  </g>
+  
+</svg>

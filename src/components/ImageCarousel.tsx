@@ -20,7 +20,7 @@ export const ImageCarousel: React.FC<ImageCarouselProps> = ({
     `${basePath}images/temples/Durga.png`,
     `${basePath}images/temples/Khali.png`,
     `${basePath}images/temples/Lakshmi.png`,
-    `${basePath}images/temples/Temple.png`,
+    // `${basePath}images/temples/Temple.png`,
   ];
   // Fallback gradients if images fail to load
   const fallbackGradients = [
