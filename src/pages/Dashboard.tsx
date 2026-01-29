@@ -43,7 +43,7 @@ const sacredStyles = `
   }
 
   .stone-card:hover {
-    transform: translateY(-5px) scale(1.01);
+   
     box-shadow: 
       15px 15px 25px rgba(217, 119, 6, 0.15), 
       -8px -8px 16px #ffffff;
@@ -275,7 +275,7 @@ export const Dashboard: React.FC = () => {
 
       <Navbar userData={userData} onLogout={handleLogout} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-32">
+      <main className="max-w-7xl mx-auto px-16 sm:px-6 lg:px-20  py-10 pb-32">
 
         {/* --- Header Section --- */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 relative">
@@ -347,52 +347,91 @@ export const Dashboard: React.FC = () => {
           />
         </div>
 
-        {/* --- Controls & Table Container --- */}
-        <div className="stone-card rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 border border-white/50">
+        {/* --- Controls Section (Separate Card) --- */}
+        {/* --- Controls Section (Separate Card) --- */}
+        {/* --- Controls Section (Robust Layout) --- */}
+        <div className="rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 border border-white/50 shadow-[8px_8px_16px_#E6DCC8] mb-6">
+          <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-6">
 
-          {/* Table Controls */}
-          <div className="p-6 border-b border-stone-100 bg-gradient-to-r from-stone-50 to-white flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="relative w-full md:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 w-5 h-5" />
+            {/* --- LEFT: Search Input (Flexbox Wrapper Method) --- */}
+            {/* This container acts as the 'Input Field' visually */}
+            <div className="group w-full md:w-[480px] flex items-center bg-stone-50 rounded-xl p-1.5 stone-inset focus-within:ring-2 focus-within:ring-orange-100 transition-all">
+
+              {/* Icon */}
+              <Search className="ml-4 text-stone-400 w-5 h-5 flex-shrink-0 group-focus-within:text-orange-600 transition-colors" />
+
+              {/* Actual Input (Transparent, no border) */}
               <input
                 type="text"
-                placeholder="Search by name, phone, or location..."
+                placeholder="Search by name, phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 stone-inset bg-stone-50 text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all"
+                className="flex-1 bg-transparent border-none outline-none text-stone-700 font-medium px-4 py-3 focus:ring-0 focus:outline-none placeholder:text-stone-400 w-full min-w-0"
               />
+
+              {/* Button (Sitting naturally inside the flex container) */}
+              <button
+                className="flex-shrink-0 relative overflow-hidden bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-2.5 rounded-lg font-bold text-xs tracking-widest uppercase shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+              >
+                <div className="absolute inset-0 bg-black/30 -translate-x-full group-hover:translate-x-0 transition-transform duration-300"></div>
+                <span className="relative z-10">Search</span>
+              </button>
             </div>
 
-            <div className="flex bg-stone-100 p-1 rounded-lg stone-inset gap-1">
-              {['all', 'approved', 'pending', 'rejected'].map(status => (
+            {/* --- RIGHT: Filter Toggle (Clean White) --- */}
+            <div className="relative grid grid-cols-4 bg-stone-100 p-1.5 rounded-xl stone-inset w-full md:w-auto min-w-[400px]">
+
+              {/* Animated White Pill */}
+              <div
+                className="absolute inset-y-1.5 w-1/4 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] z-0"
+                style={{
+                  transform: `translateX(${['all', 'approved', 'pending', 'rejected'].indexOf(filterStatus) * 100}%)`,
+                }}
+              >
+                <div className="h-full mx-1 bg-white rounded-lg shadow-sm" />
+              </div>
+
+              {/* Buttons */}
+              {['all', 'approved', 'pending', 'rejected'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status as any)}
-                  className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-all duration-300
-                    ${filterStatus === status
-                      ? 'bg-white text-orange-700 shadow-md transform scale-105'
-                      : 'text-stone-500 hover:text-stone-700'}`
-                  }
+                  className={`
+            relative z-10 py-2.5 px-4 text-sm font-bold capitalize transition-colors duration-200 rounded-lg select-none
+            ${filterStatus === status
+                      ? 'text-orange-700'
+                      : 'text-stone-400 hover:text-stone-600'
+                    }
+          `}
                 >
                   {status}
                 </button>
               ))}
             </div>
+
+          </div>
+        </div>
+        {/* --- Table Container (Separate Card) --- */}
+        <div className="stone-card rounded-2xl overflow-hidden backdrop-blur-sm bg-white/80 border border-white/50">
+          {/* Table Header */}
+          <div className="bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 border-b-2 border-orange-300">
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs uppercase tracking-widest font-bold">
+                  <th className="p-6 pl-8 font-sacred text-sm text-orange-900 text-left">Priest Identity</th>
+                  <th className="p-6 text-amber-900 text-left">Contact Info</th>
+                  <th className="p-6 text-orange-800 text-left">Specialization</th>
+                  <th className="p-6 text-amber-900 text-left">Location</th>
+                  <th className="p-6 text-orange-800 text-left">Status</th>
+                  <th className="p-6 text-right pr-8 text-amber-900">Actions</th>
+                </tr>
+              </thead>
+            </table>
           </div>
 
           {/* --- THE GEOMETRIC TABLE --- */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto scrollbar-hide">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-stone-100/50 text-stone-500 text-xs uppercase tracking-widest font-bold border-b border-stone-200">
-                  <th className="p-6 pl-8 font-sacred text-sm text-stone-700">Priest Identity</th>
-                  <th className="p-6">Contact Info</th>
-                  <th className="p-6">Specialization</th>
-                  <th className="p-6">Location</th>
-                  <th className="p-6">Status</th>
-                  <th className="p-6 text-right pr-8">Actions</th>
-                </tr>
-              </thead>
               <tbody className="divide-y divide-stone-100">
                 {filtered.length > 0 ? (
                   filtered.map((priest, idx) => (
@@ -403,7 +442,7 @@ export const Dashboard: React.FC = () => {
                     >
                       <td className="p-6 pl-8">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-amber-200 text-orange-800 flex items-center justify-center font-sacred text-xl font-bold shadow-inner border border-orange-200 transform group-hover:rotate-6 transition-transform">
+                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-amber-200 text-orange-800 flex items-center justify-center font-sacred text-xl font-bold shadow-inner border border-orange-200 transform transition-transform">
                             {priest.priestName.charAt(0)}
                           </div>
                           <div>
@@ -425,12 +464,13 @@ export const Dashboard: React.FC = () => {
                       </td>
 
                       <td className="p-6">
-                        <div className="flex flex-wrap gap-2 max-w-[250px]">
-                          <span className="bg-stone-100 text-stone-600 px-2 py-1 text-xs font-bold uppercase rounded border border-stone-200">{priest.experience} Yrs</span>
-                          {priest.specialization.slice(0, 2).map((s, i) => (
-                            <span key={i} className="bg-orange-50 text-orange-700 px-2 py-1 text-xs font-bold uppercase rounded border border-orange-100">{s}</span>
-                          ))}
-                          {priest.specialization.length > 2 && <span className="text-xs text-stone-400 py-1">+ {priest.specialization.length - 2}</span>}
+                        <div className="flex flex-col gap-1 max-w-[250px]">
+                          <span className="text-stone-600 px-2 py-0 text-xs font-bold uppercase">{priest.experience} Yrs</span>
+                          <div className="flex flex-wrap gap-1">
+                            {priest.specialization.map((s, i) => (
+                              <span key={i} className="bg-orange-50 text-orange-700 px-2 py-0.5 text-[8px] font-bold uppercase rounded border border-orange-100">{s}</span>
+                            ))}
+                          </div>
                         </div>
                       </td>
 
@@ -566,7 +606,7 @@ const StatCard3D = ({ label, value, icon, color, trend, delay }: any) => {
 
       {/* Header Section (Icon + Label) */}
       <div className="flex justify-between items-start relative z-10">
-        <p className="text-stone-500 text-[10px] font-bold uppercase tracking-[0.2em] pt-1">{label}</p>
+        <p className="text-stone-500 text-xs font-bold uppercase tracking-[0.2em] pt-1">{label}</p>
 
         {/* 3D Icon Container */}
         <div className={`
