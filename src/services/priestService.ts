@@ -108,7 +108,7 @@ class PriestService {
       
       const encData = JSON.stringify(pujaInfo);
 
-      const response = await fetch(`${API_BASE_URL}/authority/save_priest_puja_info`, {
+      const response = await fetch(`${API_BASE_URL}/priest/save_puja_info`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -177,7 +177,7 @@ class PriestService {
       const encData = JSON.stringify(payload);
 
       // 2. Make a SINGLE API call
-      const response = await fetch(`${API_BASE_URL}/authority/save_priest_puja_info`, {
+      const response = await fetch(`${API_BASE_URL}/priest/save_puja_info`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -254,7 +254,7 @@ class PriestService {
 
       const encData = JSON.stringify(finalPayload);
 
-      const response = await fetch(`${API_BASE_URL}/authority/save_priest_professional_details`, {
+      const response = await fetch(`${API_BASE_URL}/priest/save_professional_details`, {
         method: 'POST',
         headers: {
           'accept': '*/*',

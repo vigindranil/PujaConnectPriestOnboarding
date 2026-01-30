@@ -4,6 +4,7 @@ import { API_CONFIG, getApiUrl } from '../config/api';
 import { authService } from '../services/authService';
 import { priestService } from '../services/priestService';
 import { useSacredAlert } from '../hooks/useSacredAlert';
+import { authServiceV1 } from '../services/authServiceV1';
 
 interface PriestRegistrationFormData {
   registrationMode: 'self' | 'survey' | '';
@@ -466,7 +467,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
         entry_user_id: 0 // This will be overridden by authService with the actual logged-in user ID
       };
 
-      const response = await authService.registerPriest(priestData);
+      const response = await authServiceV1.registerPriest(priestData);
 
       if (response.status === 0) {
         // Parse the data string: "{\"authority_user_id\":101}"

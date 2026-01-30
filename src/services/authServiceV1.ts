@@ -1,5 +1,6 @@
 import { callApi, setUserSession, getUserId } from '../config/apiV1';
 import type { UserSession } from '../config/apiV1';
+import type { PriestRegistrationResponse } from './authService';
 export const authServiceV1 = {
   
   // --- OTP Generation ---
@@ -56,15 +57,40 @@ export const authServiceV1 = {
 
   // --- Registration ---
 
-  registerPriest: (priestData: any) => {
+  async savePriestProfile(profileData: any): Promise<any> {
+  try {
+    const currentUserId = getUserId();
+    console.log('Current User ID:', currentUserId);
+
+    // Add/Overwrite entry_user_id
+    const finalProfileData = {
+      ...profileData,
+      entry_user_id: currentUserId || 5
+    };
+
+    // callApi already returns parsed JSON response
+    const data = await callApi('/priest/save_user_profile', 'POST', finalProfileData);
+
+    // Check the API's status field (not HTTP status)
+    if (data.status === 0) {
+      return data;
+    } else {
+      throw new Error(data.message || 'Failed to save priest profile');
+    }
+  } catch (error) {
+    console.error('Error saving priest profile:', error);
+    throw error;
+  }
+},
+ async registerPriest(priestData: any) {
     const currentUserId = getUserId(); 
-    
+     
     // Auto-inject entry_user_id
     const finalData = { 
       ...priestData, 
       entry_user_id: currentUserId || 1 
     };
     
-    return callApi('/authority/register_authority_user', 'POST', finalData);
+    return callApi('/priest/register_user', 'POST', finalData);
   }
 };
