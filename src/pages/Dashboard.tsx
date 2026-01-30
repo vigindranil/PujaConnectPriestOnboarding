@@ -6,7 +6,7 @@ import {
   Sparkles, Filter, MoreHorizontal, ArrowUpRight
 } from 'lucide-react';
 import type { UserData } from '../services/authService';
-import { getAgentDashboard, getAuthToken, getUserData, getAuthorityPriestInfo,type DashboardStats,type DashboardPriestInfo } from '../services/dashboardservice';
+import { getAgentDashboard, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
 import { Navbar } from '../components/Navbar';
 import flameIcon from "../assets/flame.svg"
 
@@ -139,19 +139,6 @@ interface RegisteredPriest {
   notes?: string;
 }
 
-interface PriestDetails{
-priestId:number;
-priestDob:string;
-priestName:string;
-priestGender:string;
-priestContactNo:string;
-priestEmail:string;
-priestPresentCityTownVillage:string;
-priestApprovalStatus :string;
-priestPresentPostOffice:string;
-priestExperienceYear:number;
-
-}
 interface AgentStats {
   todaySurvey: number;
   totalSurvey: number;
@@ -162,7 +149,7 @@ interface AgentStats {
   commissionEarned: number;
 }
 
- const Dashboard: React.FC = () => {
+export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [priests, setPriests] = useState<RegisteredPriest[]>([]);
@@ -173,11 +160,8 @@ interface AgentStats {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedPriest, setSelectedPriest] = useState<PriestDetails | null>(null);
+  const [selectedPriest, setSelectedPriest] = useState<RegisteredPriest | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [allpriests, setAllPriests] = useState<PriestDetails[]>([]);
-  const [loading, setLoading] = useState(false);
-  const[error,setError]=useState<string | null>(null);
 
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -187,7 +171,7 @@ interface AgentStats {
     const stored = localStorage.getItem('puja_connect_user');
     if (stored) setUserData(JSON.parse(stored));
 
-    loadPriestData();
+    loadMockPriestData();
     loadDashboardStats();
 
     return () => { document.head.removeChild(styleSheet); };
@@ -211,37 +195,17 @@ interface AgentStats {
     } catch (e) { console.error(e); }
   };
 
- const loadPriestData = useCallback(async() => {
-    
-   try {
-       setLoading(true);
-       setError(null);
- 
-       const user = getUserData();
-       const token = getAuthToken();
-      
- 
-       if (!user || !token) {
-         throw new Error('User not logged in');
-       }
- 
-       const data = await getAuthorityPriestInfo(user.user_id,0,0,0,0,"",""  );
- 
-      const priestList = (data as unknown) as PriestDetails[];
-      setAllPriests(priestList || []);
-      // updateStats(priestList || []);
-     } catch (err: any) {
-       setError(err.message || 'Something went wrong fetching priests');
-     } finally {
-       setLoading(false);
-     }
-   }, []);
-    useEffect(() => {
-  setStats(prev => ({
-    ...prev,
-    totalRegistered: allpriests.length,
-  }));
-}, [allpriests]);
+  const loadMockPriestData = useCallback(() => {
+    const mockPriests: RegisteredPriest[] = [
+      { id: 1, agentId: 'A1', priestName: 'Pandit Sharma', priestPhone: '9876543210', priestEmail: 'sharma@email.com', experience: 15, specialization: ['Vedic Rituals', 'Puja'], education: 'Vedic Scholar', certification: ['Ritual Specialist'], location: 'Delhi', status: 'approved', registeredDate: '2026-01-10', updatedAt: '2026-01-15' },
+      { id: 2, agentId: 'A1', priestName: 'Priest Gupta', priestPhone: '9876543211', priestEmail: 'gupta@email.com', experience: 8, specialization: ['Marriage', 'Havan'], education: 'Vedic Master', certification: ['Marriage Specialist'], location: 'Mumbai', status: 'pending', registeredDate: '2026-01-20', updatedAt: '2026-01-20' },
+      { id: 3, agentId: 'A1', priestName: 'Pandit Mishra', priestPhone: '9876543212', priestEmail: 'mishra@email.com', experience: 20, specialization: ['Astrology', 'Vedic Rituals'], education: 'Senior Scholar', certification: ['Astrology Cert'], location: 'Varanasi', status: 'approved', registeredDate: '2026-01-05', updatedAt: '2026-01-12' },
+      { id: 4, agentId: 'A1', priestName: 'Priest Patel', priestPhone: '9876543213', priestEmail: 'patel@email.com', experience: 5, specialization: ['Puja'], education: 'Basic Vedic', certification: ['Basic Cert'], location: 'Bangalore', status: 'rejected', registeredDate: '2026-01-19', updatedAt: '2026-01-22' },
+      { id: 5, agentId: 'A1', priestName: 'Acharya Singh', priestPhone: '9876543214', priestEmail: 'singh@email.com', experience: 12, specialization: ['Vastu', 'Griha Pravesh'], education: 'PhD Sanskrit', certification: ['Vastu Shastra'], location: 'Jaipur', status: 'approved', registeredDate: '2026-01-25', updatedAt: '2026-01-26' },
+    ];
+    setPriests(mockPriests);
+    setStats(prev => ({ ...prev, totalRegistered: mockPriests.length }));
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('puja_connect_user');
@@ -249,32 +213,26 @@ interface AgentStats {
     navigate('/');
   };
 
-   const handleAddPriest = (newPriest: Omit<RegisteredPriest, 'id' | 'agentId'>) => {
-    const priest: RegisteredPriest = {
-      ...newPriest,
-      id: Math.max(...priests.map(p => p.id), 0) + 1,
-      agentId: userData?.user_id.toString() || 'AGENT001',
-    };
-    setPriests([...priests, priest]);
+  const handleAddPriest = (p: any) => {
+    setPriests([...priests, { ...p, id: Date.now(), agentId: userData?.user_id || 'A1' }]);
     setShowAddModal(false);
+    loadDashboardStats();
   };
-
   const handleEditPriest = (p: any) => {
-    setAllPriests(allpriests.map(x => x.priestId === p.priestId ? p : x));
+    setPriests(priests.map(x => x.id === p.id ? p : x));
     setShowViewModal(false);
     loadDashboardStats();
   };
   const handleDeletePriest = (id: number) => {
-    setAllPriests(allpriests.filter(x => x.priestId !== id));
+    setPriests(priests.filter(x => x.id !== id));
     setShowViewModal(false);
-    setSelectedPriest(null);
     loadDashboardStats();
   };
 
-  const filtered = allpriests.filter(p => {
+  const filtered = priests.filter(p => {
     const s = searchTerm.toLowerCase();
-    const match = p.priestName.toLowerCase().includes(s) || p.priestContactNo.includes(s) || p.priestEmail.toLowerCase().includes(s);
-    return filterStatus === 'all' ? match : match && p.priestApprovalStatus === filterStatus;
+    const match = p.priestName.toLowerCase().includes(s) || p.priestPhone.includes(s) || p.priestEmail.toLowerCase().includes(s);
+    return filterStatus === 'all' ? match : match && p.status === filterStatus;
   });
 
   const flame = <img src={flameIcon} alt="flame" className="w-6 h-6" />;
@@ -460,13 +418,10 @@ interface AgentStats {
             <table className="w-full">
               <thead>
                 <tr className="text-xs uppercase tracking-widest font-bold">
-                  <th className="p-6 pl-8 font-sacred text-sm text-orange-900 text-left">Priest Name</th>
+                  <th className="p-6 pl-8 font-sacred text-sm text-orange-900 text-left">Priest Identity</th>
                   <th className="p-6 text-amber-900 text-left">Contact Info</th>
-                    <th className="p-6 text-amber-900 text-left">Date Of Birth</th>
-                  <th className="p-6 text-orange-800 text-left">Gender</th>
+                  <th className="p-6 text-orange-800 text-left">Specialization</th>
                   <th className="p-6 text-amber-900 text-left">Location</th>
-                  <th className="p-6 text-amber-900 text-left">Post Office </th>
-                   <th className="p-6 text-amber-900 text-left">Year of Experience </th>
                   <th className="p-6 text-orange-800 text-left">Status</th>
                   <th className="p-6 text-right pr-8 text-amber-900">Actions</th>
                 </tr>
@@ -481,7 +436,7 @@ interface AgentStats {
                 {filtered.length > 0 ? (
                   filtered.map((priest, idx) => (
                     <tr
-                      key={priest.priestId}
+                      key={priest.id}
                       className="table-row-animate group bg-white hover:bg-orange-50/20"
                       style={{ transitionDelay: `${idx * 50}ms` }}
                     >
@@ -495,8 +450,7 @@ interface AgentStats {
                               {priest.priestName}
                             </div>
                             <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mt-0.5">
-                              {/* ID: {priest.agentId}-{priest.priestId} */}/
-                              ID: {priest.priestId}
+                              ID: {priest.agentId}-{priest.id}
                             </div>
                           </div>
                         </div>
@@ -504,52 +458,28 @@ interface AgentStats {
 
                       <td className="p-6">
                         <div className="flex flex-col">
-                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestContactNo}</span>
+                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestPhone}</span>
                           <span className="text-sm text-stone-400 truncate max-w-[150px]">{priest.priestEmail}</span>
                         </div>
                       </td>
-                       <td className="p-6">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestDob}</span>
-                          
-                        </div>
-                      </td>
-
-                       <td className="p-6">
-                        
-                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestGender}</span>
-                          
-                        
-                      </td>
-
-                      <td className="p-6">
-                        <span className="text-stone-700 font-medium">{priest.priestPresentCityTownVillage}</span>
-                      </td>
-
-                       <td className="p-6">
-                        
-                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestPresentPostOffice}</span>
-                          
-                        
-                      </td>
-
-
 
                       <td className="p-6">
                         <div className="flex flex-col gap-1 max-w-[250px]">
-                          <span className="text-stone-600 px-2 py-0 text-xs font-bold uppercase">{priest.priestExperienceYear} Yrs</span>
-                          {/* <div className="flex flex-wrap gap-1">
+                          <span className="text-stone-600 px-2 py-0 text-xs font-bold uppercase">{priest.experience} Yrs</span>
+                          <div className="flex flex-wrap gap-1">
                             {priest.specialization.map((s, i) => (
                               <span key={i} className="bg-orange-50 text-orange-700 px-2 py-0.5 text-[8px] font-bold uppercase rounded border border-orange-100">{s}</span>
                             ))}
-                          </div> */}
+                          </div>
                         </div>
                       </td>
 
-                      
+                      <td className="p-6">
+                        <span className="text-stone-700 font-medium">{priest.location}</span>
+                      </td>
 
                       <td className="p-6">
-                        <StatusBadge status={priest.priestApprovalStatus} />
+                        <StatusBadge status={priest.status} />
                       </td>
 
                       <td className="p-6 pr-8 text-right">
@@ -566,7 +496,7 @@ interface AgentStats {
                           />
                           <ActionButton
                             icon={<Trash2 size={16} />}
-                            onClick={() => { if (confirm('Delete?')) handleDeletePriest(priest.priestId); }}
+                            onClick={() => { if (confirm('Delete?')) handleDeletePriest(priest.id); }}
                             danger
                             label="Delete"
                           />
@@ -610,7 +540,7 @@ interface AgentStats {
           isEditMode={isEditMode}
           onClose={() => { setShowViewModal(false); setIsEditMode(false); }}
           onEdit={handleEditPriest}
-          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.priestId); }}
+          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.id); }}
         />
       )}
     </div>
@@ -820,21 +750,21 @@ const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdi
             <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">{priest.priestName.charAt(0)}</div>
             <div>
               <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.priestName}</h2>
-              <div className="mt-3"><StatusBadge status={priest.priestApprovalStatus} /></div>
+              <div className="mt-3"><StatusBadge status={priest.status} /></div>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <GeometricInput disabled={!isEditMode} label="Name" value={f.priestName} onChange={(e: any) => setF({ ...f, priestName: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Phone" value={f.priestContactNo} onChange={(e: any) => setF({ ...f, priestContactNo: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Phone" value={f.priestPhone} onChange={(e: any) => setF({ ...f, priestPhone: e.target.value })} />
           <GeometricInput disabled={!isEditMode} label="Email" value={f.priestEmail} onChange={(e: any) => setF({ ...f, priestEmail: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Location" value={f.priestPresentCityTownVillage} onChange={(e: any) => setF({ ...f, priestPresentCityTownVillage: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Location" value={f.location} onChange={(e: any) => setF({ ...f, location: e.target.value })} />
 
           {isEditMode && (
             <div className="col-span-2">
               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">Status</label>
-              <select value={f.priestApprovalStatus} onChange={(e) => setF({ ...f, priestApprovalStatus: e.target.value })} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-lg font-medium outline-none focus:ring-2 focus:ring-orange-100 stone-inset">
+              <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-lg font-medium outline-none focus:ring-2 focus:ring-orange-100 stone-inset">
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
@@ -860,4 +790,3 @@ const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdi
     </ModalFrame>
   );
 };
-export default Dashboard;

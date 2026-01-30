@@ -1,7 +1,4 @@
-import { callApi } from '../config/apiV1';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api';
-const BASE_API_URL = import.meta.env.VITE_BASE_API_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api';
 
 export interface DashboardStats {
   today_survey_qty: number;
@@ -9,22 +6,6 @@ export interface DashboardStats {
   total_pending_qty: number;
   total_approved_qty: number;
   total_rejected_qty: number;
-}
-
-export interface DashboardPriestInfo {
-
-  priest_dob: string;
-  priest_name: string;
-  priest_gender: string;
-  priest_contact_no: string;
-  priest_email: string;
-  priest_present_city_town_village: string;
-  priest_approval_status: string;
-  priest_present_post_office: string;
-  priest_experience_year: number;
-
-
-
 }
 
 export interface ApiResponse<T> {
@@ -45,13 +26,35 @@ export const getAgentDashboard = async (
   authToken: string
 ): Promise<DashboardStats> => {
   try {
-    const payload = { agent_id: agentId };
-    const response = await callApi('/dashboard/get_agent_dashboard', 'POST', payload);
-    if (response && response.status === 0 && response.data) {
-      const parsedData: DashboardStats = JSON.parse(response.data);
-      return parsedData;
+    const requestData = {
+      enc_data: JSON.stringify({
+        agent_id: agentId
+      })
+    };
+
+    const response = await fetch(`${API_BASE_URL}/dashboard/get_agent_dashboard`, {
+      method: 'POST',
+      headers: {
+        'accept': '*/*',
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
     }
-    throw new Error(response?.message || 'Failed to fetch dashboard data');
+
+    const responseData = (await response.json()) as ApiResponse<string>;
+
+    if (responseData.status === 0 && responseData.data) {
+      // Parse the stringified JSON data
+      const parsedData: DashboardStats = JSON.parse(responseData.data);
+      return parsedData;
+    } else {
+      throw new Error(responseData.message || 'Failed to fetch dashboard data');
+    }
   } catch (error) {
     console.error('API Error:', error);
     throw error instanceof Error ? error : new Error('Failed to fetch dashboard statistics');
@@ -69,12 +72,12 @@ export const getAuthToken = (): string | null => {
     try {
       // Attempt to parse the stored string as JSON
       const parsed = JSON.parse(stored);
-
+      
       // If it has a .token property (as seen in your example), return that
       if (parsed && typeof parsed === 'object' && parsed.token) {
         return parsed.token;
       }
-
+      
       // If it's a string but doesn't match the object structure, return as is
       // (This handles cases where it might be stored as a raw string)
       return stored;
@@ -102,45 +105,4 @@ export const getUserData = (): { user_id: number } | null => {
     }
   }
   return null;
-};
-
-export const getAuthorityPriestInfo = async (
-  agentId: number,
-  priestuserId: number,
-  statusId:number,
-  pageNo:number,
-  pageSize:number,
-  fromDate:string,
-  toDate:string
-  
-  
-): Promise<DashboardPriestInfo[]> => {
-  try {
-
-    const payload = {
-      authority_user_id: agentId,
-      priest_user_id: priestuserId,
-      status_id: statusId,
-      page_no: pageNo,
-      page_size: pageSize,
-      from_date: fromDate,
-      to_date: toDate
-    };
-    console.log("Payload in service:",payload);
-    console.log("agentId:",agentId);
-    const response = await callApi(
-      '/priest/get_authority_priest_info',
-      'POST',
-      payload
-    );
-
-    if (response?.status === 0 && response.data) {
-      return JSON.parse(response.data) as DashboardPriestInfo[];
-    }
-
-    throw new Error(response?.message || 'No data received');
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
 };

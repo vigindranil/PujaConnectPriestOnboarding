@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PriestRegistrationStepper from '../components/PriestRegistrationStepper';
 import { authService } from '../services/authService';
+import { authServiceV1 } from '../services/authServiceV1';
 
 interface PriestRegistrationFormData {
   registrationMode: 'self' | 'survey' | '';
@@ -81,7 +82,7 @@ export const PriestRegistration: React.FC = () => {
 
       // Prepare profile data according to the API structure
       const profileData = {
-        authority_user_id: additionalData.registeredUserId || 0,
+        priest_user_id: additionalData.registeredUserId || 0,
         full_name: formData.fullName,
         guardian_name: formData.parentName,
         dob: formData.dateOfBirth,
@@ -129,10 +130,11 @@ export const PriestRegistration: React.FC = () => {
 
       console.log('Profile Data to be sent:', profileData);
 
-      const response = await authService.savePriestProfile(profileData);
+      const response = await authServiceV1.savePriestProfile(profileData);
 
       if (response.status === 0) {
-        navigate('/dashboard');
+        navigate('/dashboard'); 
+        console.log('Priest profile saved successfully.');
       } else {
         alert(`Failed to save priest profile: ${response.message}`);
       }

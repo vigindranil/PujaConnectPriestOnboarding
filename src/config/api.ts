@@ -6,8 +6,6 @@
 export const API_CONFIG = {
   // Base URL from environment variable
   BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api',
-  //BASE_URL2: import.meta.env.VITE_BASE_API_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api',
-
   
   // API Endpoints
   ENDPOINTS: {
@@ -26,8 +24,7 @@ export const API_CONFIG = {
       GET_DOCUMENT_TYPES: '/master/get_all_doc_type',
     },
     PRIEST: {
-      REGISTER: '/authority/register_authority_user',
-      DETAILS:'priest/get_authority_priest_info',
+      REGISTER: '/priest/register_authority_user',
       SAVE_PROFILE: '/authority/save_authority_user_profile', // Add this line
       GET_ALL: '/priests/getAll',
       UPDATE: '/priests/update',

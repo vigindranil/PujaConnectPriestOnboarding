@@ -295,20 +295,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setLoading(true);
     try {
       const cleanPhone = phoneNumber.replace(/\D/g, '');
-      let userData; // Assuming response logic handles this
 
+      // FIX: Capture the response with userData
+      let response;
       if (userType === 'authority') {
-        await authServiceV1.validateAuthorityOTP(cleanPhone, otp);
+        response = await authServiceV1.validateAuthorityOTP(cleanPhone, otp);
       } else {
-        await authServiceV1.validateOTP(cleanPhone, otp);
+        response = await authServiceV1.validateOTP(cleanPhone, otp);
       }
 
-      const storedData = {
-        ...userData,
-        loginType: userType
-      };
-
-      localStorage.setItem('puja_connect_user', JSON.stringify(storedData));
+      // The userData is already stored in localStorage by authServiceV1
+      // But if you still want to access it:
+      const userData = response.userData;
 
       setLoading(false);
       setSuccessAlert(true);

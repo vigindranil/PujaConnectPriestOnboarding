@@ -6,7 +6,6 @@
 // 1. Configuration & Constants
 export const API_CONFIG = {
   BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api',
-  BASE_URL2:import.meta.env.VITE_BASE_API_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api',
   AUTH_HEADER: import.meta.env.VITE_AUTH_HEADER || 'Basic YURtaW4jVG9rZW4kR2VOYVJhVGUyNjphZG1pbkAxMjM=',
   STORAGE_KEYS: {
     TOKEN: 'puja_connect_auth_token',
@@ -90,7 +89,7 @@ export const clearSession = () => {
 // 5. Internal: System Token Generator
 const generateSystemToken = async (): Promise<string> => {
   try {
-    const response = await fetch(`${API_CONFIG.BASE_URL2}/auth/generateToken`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/generateToken`, {
       method: 'POST',
       headers: {
         'Authorization': API_CONFIG.AUTH_HEADER,
@@ -115,7 +114,7 @@ export const callApi = async (
   endpoint: string, 
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', 
   payload: any = null,
-   isRetry = false
+  isRetry = false
 ): Promise<any> => {
   
   let token = getToken();
@@ -134,7 +133,7 @@ export const callApi = async (
   }
 
   try {
-    const response = await fetch(`${API_CONFIG.BASE_URL2}${endpoint}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
       method,
       headers,
       body
