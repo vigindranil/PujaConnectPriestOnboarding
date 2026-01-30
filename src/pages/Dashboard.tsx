@@ -6,7 +6,7 @@ import {
   Sparkles, Filter, MoreHorizontal, ArrowUpRight
 } from 'lucide-react';
 import type { UserData } from '../services/authService';
-import { getAgentDashboard, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
+import { getAgentDashboard, getAuthorityPriestInfo, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
 import { Navbar } from '../components/Navbar';
 import flameIcon from "../assets/flame.svg"
 
@@ -139,6 +139,24 @@ interface RegisteredPriest {
   notes?: string;
 }
 
+export interface PriestDetails {
+  priest_user_id: number;
+  priest_name: string;
+  priest_email: string;
+  priest_contact_no: string;
+  priest_gender: string;
+  priest_dob: string;
+  priest_present_city_town_village: string;
+  priest_present_post_office: string;
+  priest_approval_status: string;
+  priest_experience_year: number;
+  status:string;
+}
+
+
+
+  
+
 interface AgentStats {
   todaySurvey: number;
   totalSurvey: number;
@@ -156,12 +174,15 @@ export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<AgentStats>({
     todaySurvey: 0, totalSurvey: 0, totalRegistered: 0, approved: 0, pending: 0, rejected: 0, commissionEarned: 0,
   });
+  const [allpriests, setAllPriests] = useState<PriestDetails[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [selectedPriest, setSelectedPriest] = useState<RegisteredPriest | null>(null);
+  const [selectedPriest, setSelectedPriest] = useState<PriestDetails | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -171,8 +192,9 @@ export const Dashboard: React.FC = () => {
     const stored = localStorage.getItem('puja_connect_user');
     if (stored) setUserData(JSON.parse(stored));
 
-    loadMockPriestData();
+    loadPriestData();
     loadDashboardStats();
+
 
     return () => { document.head.removeChild(styleSheet); };
   }, []);
@@ -180,6 +202,7 @@ export const Dashboard: React.FC = () => {
   const loadDashboardStats = async () => {
     try {
       const user = getUserData();
+      console.log('User Data in Dashboard:', user);
       const token = getAuthToken();
       if (!user || !token) throw new Error('Auth Error');
       const data: DashboardStats = await getAgentDashboard(user.user_id, token);
@@ -195,17 +218,49 @@ export const Dashboard: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
-  const loadMockPriestData = useCallback(() => {
-    const mockPriests: RegisteredPriest[] = [
-      { id: 1, agentId: 'A1', priestName: 'Pandit Sharma', priestPhone: '9876543210', priestEmail: 'sharma@email.com', experience: 15, specialization: ['Vedic Rituals', 'Puja'], education: 'Vedic Scholar', certification: ['Ritual Specialist'], location: 'Delhi', status: 'approved', registeredDate: '2026-01-10', updatedAt: '2026-01-15' },
-      { id: 2, agentId: 'A1', priestName: 'Priest Gupta', priestPhone: '9876543211', priestEmail: 'gupta@email.com', experience: 8, specialization: ['Marriage', 'Havan'], education: 'Vedic Master', certification: ['Marriage Specialist'], location: 'Mumbai', status: 'pending', registeredDate: '2026-01-20', updatedAt: '2026-01-20' },
-      { id: 3, agentId: 'A1', priestName: 'Pandit Mishra', priestPhone: '9876543212', priestEmail: 'mishra@email.com', experience: 20, specialization: ['Astrology', 'Vedic Rituals'], education: 'Senior Scholar', certification: ['Astrology Cert'], location: 'Varanasi', status: 'approved', registeredDate: '2026-01-05', updatedAt: '2026-01-12' },
-      { id: 4, agentId: 'A1', priestName: 'Priest Patel', priestPhone: '9876543213', priestEmail: 'patel@email.com', experience: 5, specialization: ['Puja'], education: 'Basic Vedic', certification: ['Basic Cert'], location: 'Bangalore', status: 'rejected', registeredDate: '2026-01-19', updatedAt: '2026-01-22' },
-      { id: 5, agentId: 'A1', priestName: 'Acharya Singh', priestPhone: '9876543214', priestEmail: 'singh@email.com', experience: 12, specialization: ['Vastu', 'Griha Pravesh'], education: 'PhD Sanskrit', certification: ['Vastu Shastra'], location: 'Jaipur', status: 'approved', registeredDate: '2026-01-25', updatedAt: '2026-01-26' },
-    ];
-    setPriests(mockPriests);
-    setStats(prev => ({ ...prev, totalRegistered: mockPriests.length }));
+  const loadPriestData = useCallback(async () => {
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const user = getUserData();
+      const token = getAuthToken();
+
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+
+      const payload = {
+        // authority_user_id: user.user_id,
+        authority_user_id: 2,
+        priest_user_id: 0,
+        status_id: 0,
+        page_no: 0,
+        page_size: 10,
+        from_date: "",
+        to_date: ""
+      }
+
+      const data = await getAuthorityPriestInfo(payload);
+
+      console.log('Fetched Priest Data:', data);
+
+      const priestList = (data as unknown) as PriestDetails[];
+      setAllPriests(priestList || []);
+      // updateStats(priestList || []);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong fetching priests');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      totalRegistered: allpriests.length,
+    }));
+  }, [allpriests]);
 
   const handleLogout = () => {
     localStorage.removeItem('puja_connect_user');
@@ -229,10 +284,15 @@ export const Dashboard: React.FC = () => {
     loadDashboardStats();
   };
 
-  const filtered = priests.filter(p => {
-    const s = searchTerm.toLowerCase();
-    const match = p.priestName.toLowerCase().includes(s) || p.priestPhone.includes(s) || p.priestEmail.toLowerCase().includes(s);
-    return filterStatus === 'all' ? match : match && p.status === filterStatus;
+  const filtered = allpriests.filter(p => {
+    const s = (searchTerm || '').toLowerCase();
+    const name = (p.priest_name || '').toLowerCase();
+    const contact = (p.priest_contact_no || '');
+    const email = (p.priest_email || '').toLowerCase();
+    const match = name.includes(s) || contact.includes(s) || email.includes(s);
+    return filterStatus === 'all'
+      ? match
+      : match && (p.status || '') === filterStatus;
   });
 
   const flame = <img src={flameIcon} alt="flame" className="w-6 h-6" />;
@@ -420,8 +480,11 @@ export const Dashboard: React.FC = () => {
                 <tr className="text-xs uppercase tracking-widest font-bold">
                   <th className="p-6 pl-8 font-sacred text-sm text-orange-900 text-left">Priest Identity</th>
                   <th className="p-6 text-amber-900 text-left">Contact Info</th>
-                  <th className="p-6 text-orange-800 text-left">Specialization</th>
+                  <th className="p-6 text-orange-800 text-left">Date Of Birth</th>
+                  <th className="p-6 text-orange-800 text-left">Gender</th>
                   <th className="p-6 text-amber-900 text-left">Location</th>
+                  {/* <th className="p-6 text-amber-900 text-left">Post Office</th> */}
+                  <th className="p-6 text-orange-800 text-left">Experience Year</th>
                   <th className="p-6 text-orange-800 text-left">Status</th>
                   <th className="p-6 text-right pr-8 text-amber-900">Actions</th>
                 </tr>
@@ -430,88 +493,125 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* --- THE GEOMETRIC TABLE --- */}
-          <div className="overflow-x-auto scrollbar-hide">
-            <table className="w-full text-left border-collapse">
+          {/* --- THE GEOMETRIC TABLE --- */}
+          {/* --- THE GEOMETRIC TABLE --- */}
+          {/* --- THE GEOMETRIC TABLE --- */}
+          <div className="overflow-hidden">
+            <table className="w-full text-left border-collapse table-fixed">
               <tbody className="divide-y divide-stone-100">
                 {filtered.length > 0 ? (
-                  filtered.map((priest, idx) => (
-                    <tr
-                      key={priest.id}
-                      className="table-row-animate group bg-white hover:bg-orange-50/20"
-                      style={{ transitionDelay: `${idx * 50}ms` }}
-                    >
-                      <td className="p-6 pl-8">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-amber-200 text-orange-800 flex items-center justify-center font-sacred text-xl font-bold shadow-inner border border-orange-200 transform transition-transform">
-                            {priest.priestName.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-sacred font-bold text-lg text-stone-800 group-hover:text-orange-700 transition-colors">
-                              {priest.priestName}
+                  filtered.map((priest, idx) => {
+                    // Parse the status to match the badge options
+                    let status = 'pending';
+                    if (priest.status) {
+                      const statusLower = priest.status.toLowerCase();
+                      if (statusLower === 'approved') status = 'approved';
+                      else if (statusLower === 'rejected') status = 'rejected';
+                      else status = 'pending';
+                    }
+
+                    return (
+                      <tr
+                        key={priest.priest_user_id}
+                        className="table-row-animate group bg-white hover:bg-orange-50/20"
+                        style={{ transitionDelay: `${idx * 50}ms` }}
+                      >
+                        <td className="p-3 pl-6 w-[16%]">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 flex-shrink-0 rounded-lg bg-gradient-to-br from-orange-100 to-amber-200 text-orange-800 flex items-center justify-center font-sacred text-base font-bold shadow-inner border border-orange-200">
+                              {priest.priest_name?.charAt(0).toUpperCase() || 'P'}
                             </div>
-                            <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mt-0.5">
-                              ID: {priest.agentId}-{priest.id}
+                            <div className="min-w-0 flex-1">
+                              <div className="font-sacred font-bold text-sm text-stone-800 group-hover:text-orange-700 transition-colors truncate">
+                                {priest.priest_name}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="p-6">
-                        <div className="flex flex-col">
-                          <span className="font-mono text-stone-700 font-bold tracking-tight text-base">{priest.priestPhone}</span>
-                          <span className="text-sm text-stone-400 truncate max-w-[150px]">{priest.priestEmail}</span>
-                        </div>
-                      </td>
-
-                      <td className="p-6">
-                        <div className="flex flex-col gap-1 max-w-[250px]">
-                          <span className="text-stone-600 px-2 py-0 text-xs font-bold uppercase">{priest.experience} Yrs</span>
-                          <div className="flex flex-wrap gap-1">
-                            {priest.specialization.map((s, i) => (
-                              <span key={i} className="bg-orange-50 text-orange-700 px-2 py-0.5 text-[8px] font-bold uppercase rounded border border-orange-100">{s}</span>
-                            ))}
+                        <td className="p-3 w-[15%]">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-mono text-stone-700 font-semibold text-xs">{priest.priest_contact_no}</span>
+                            <span className="text-xs text-stone-400 truncate">{priest.priest_email || 'N/A'}</span>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="p-6">
-                        <span className="text-stone-700 font-medium">{priest.location}</span>
-                      </td>
+                        <td className="p-3 w-[10%]">
+                          <span className="text-xs text-stone-700 font-medium whitespace-nowrap">{priest.priest_dob || 'N/A'}</span>
+                        </td>
 
-                      <td className="p-6">
-                        <StatusBadge status={priest.status} />
-                      </td>
+                        <td className="p-3 w-[8%]">
+                          <span className="text-xs text-stone-700 font-medium">{priest.priest_gender}</span>
+                        </td>
 
-                      <td className="p-6 pr-8 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <ActionButton
-                            icon={<Eye size={16} />}
-                            onClick={() => { setSelectedPriest(priest); setShowViewModal(true); setIsEditMode(false); }}
-                            label="View"
+                        <td className="p-3 w-[12%]">
+                          <span className="text-xs text-stone-700 font-medium truncate block">{priest.priest_present_city_town_village}</span>
+                        </td>
+
+                        {/* <td className="p-3 w-[12%]">
+                          <span className="text-xs text-stone-700 font-medium truncate block">{priest.priest_present_post_office}</span>
+                        </td> */}
+
+                        <td className="p-3 w-[9%]">
+                          <span className="text-stone-600 text-xs font-bold uppercase">{priest.priest_experience_year || 0} Yrs</span>
+                        </td>
+
+                        <td className="p-3 w-[11%]">
+                          <StatusBadgeCompact status={status} />
+                        </td>
+
+                        <td className="p-3 pr-6 w-[7%]">
+                          <ActionDropdown
+                            onView={() => {
+                              setSelectedPriest({
+                                ...priest,
+                                priest_name: priest.priest_name,
+                                priest_user_id: priest.priest_user_id,
+                                priest_email: priest.priest_email,
+                                priest_contact_no: priest.priest_contact_no,
+                                priest_gender: priest.priest_gender,
+                                priest_dob: priest.priest_dob,
+                                priest_present_city_town_village: priest.priest_present_city_town_village,
+                                priest_present_post_office: priest.priest_present_post_office,
+                                priest_experience_year: priest.priest_experience_year,
+                                status: status
+                              });
+                              setShowViewModal(true);
+                              setIsEditMode(false);
+                            }}
+                            onEdit={() => {
+                              setSelectedPriest({
+                                priest_user_id: priest.priest_user_id,
+                                priest_name: priest.priest_name,
+                                priest_email: priest.priest_email,
+                                priest_contact_no: priest.priest_contact_no,
+                                priest_gender: priest.priest_gender,
+                                priest_dob: priest.priest_dob,
+                                priest_present_city_town_village: priest.priest_present_city_town_village,
+                                priest_present_post_office: priest.priest_present_post_office,
+                                priest_approval_status: status,
+                                priest_experience_year: priest.priest_experience_year,
+                                status: status
+                              });
+                              setShowViewModal(true);
+                              setIsEditMode(true);
+                            }}
+                            onDelete={() => {
+                              if (confirm('Delete this priest?')) handleDeletePriest(priest.priest_user_id);
+                            }}
                           />
-                          <ActionButton
-                            icon={<Edit2 size={16} />}
-                            onClick={() => { setSelectedPriest(priest); setShowViewModal(true); setIsEditMode(true); }}
-                            label="Edit"
-                          />
-                          <ActionButton
-                            icon={<Trash2 size={16} />}
-                            onClick={() => { if (confirm('Delete?')) handleDeletePriest(priest.id); }}
-                            danger
-                            label="Delete"
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-20 text-center">
-                      <div className="inline-block p-6 rounded-full bg-stone-50 stone-inset mb-4">
-                        <Sparkles className="w-10 h-10 text-stone-300" />
+                    <td colSpan={9} className="py-16 text-center">
+                      <div className="inline-block p-5 rounded-full bg-stone-50 stone-inset mb-3">
+                        <Sparkles className="w-8 h-8 text-stone-300" />
                       </div>
-                      <h3 className="text-xl font-sacred font-bold text-stone-600">No priests found</h3>
-                      <p className="text-stone-400 mt-2">Try adjusting your search or filters.</p>
+                      <h3 className="text-lg font-sacred font-bold text-stone-600">No priests found</h3>
+                      <p className="text-stone-400 text-sm mt-1">Try adjusting your search or filters.</p>
                     </td>
                   </tr>
                 )}
@@ -540,7 +640,7 @@ export const Dashboard: React.FC = () => {
           isEditMode={isEditMode}
           onClose={() => { setShowViewModal(false); setIsEditMode(false); }}
           onEdit={handleEditPriest}
-          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.id); }}
+          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.priest_user_id); }}
         />
       )}
     </div>
@@ -747,19 +847,19 @@ const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdi
       <form onSubmit={sub} className="space-y-6">
         {!isEditMode && (
           <div className="flex items-center gap-6 mb-8 pb-8 border-b border-stone-100">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">{priest.priestName.charAt(0)}</div>
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">{priest.PriestName.charAt(0)}</div>
             <div>
-              <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.priestName}</h2>
+              <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.PriestName}</h2>
               <div className="mt-3"><StatusBadge status={priest.status} /></div>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <GeometricInput disabled={!isEditMode} label="Name" value={f.priestName} onChange={(e: any) => setF({ ...f, priestName: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Phone" value={f.priestPhone} onChange={(e: any) => setF({ ...f, priestPhone: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Email" value={f.priestEmail} onChange={(e: any) => setF({ ...f, priestEmail: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Location" value={f.location} onChange={(e: any) => setF({ ...f, location: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Name" value={f.PriestName} onChange={(e: any) => setF({ ...f, PriestName: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Phone" value={f.PriestContactNumber} onChange={(e: any) => setF({ ...f, PriestContactNumber: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Email" value={f.PriestEmail} onChange={(e: any) => setF({ ...f, PriestEmail: e.target.value })} />
+          <GeometricInput disabled={!isEditMode} label="Location" value={f.PriestLocation} onChange={(e: any) => setF({ ...f, PriestLocation: e.target.value })} />
 
           {isEditMode && (
             <div className="col-span-2">
@@ -788,5 +888,85 @@ const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdi
         </div>
       </form>
     </ModalFrame>
+  );
+};
+
+// Compact Status Badge
+const StatusBadgeCompact = ({ status }: { status: string }) => {
+  const styles: any = {
+    approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    pending: "bg-amber-100 text-amber-800 border-amber-200",
+    rejected: "bg-red-100 text-red-800 border-red-200"
+  };
+
+  const icons: any = {
+    approved: <div className="w-1.5 h-1.5 rotate-45 bg-emerald-600" />,
+    pending: <div className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />,
+    rejected: <div className="w-1.5 h-1.5 bg-red-600" />
+  };
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border ${styles[status]} font-bold text-[10px] uppercase tracking-wider`}>
+      {icons[status]}
+      {status}
+    </div>
+  );
+};
+
+// Action Dropdown Component
+const ActionDropdown = ({ onView, onEdit, onDelete }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-2 rounded-lg bg-white text-stone-500 border border-stone-200 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-all shadow-sm"
+      >
+        <MoreHorizontal size={16} />
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border border-stone-200 py-1 z-20 overflow-hidden">
+            <button
+              onClick={() => {
+                onView();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-2 text-left text-xs font-semibold text-stone-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Eye size={14} />
+              View Details
+            </button>
+            <button
+              onClick={() => {
+                onEdit();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-2 text-left text-xs font-semibold text-stone-700 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center gap-2"
+            >
+              <Edit2 size={14} />
+              Edit
+            </button>
+            <div className="h-px bg-stone-200 my-1" />
+            <button
+              onClick={() => {
+                onDelete();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
