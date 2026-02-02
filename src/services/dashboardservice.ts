@@ -1,4 +1,7 @@
+import { callApi } from "../config/apiV1";
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://vigpl.com/PujaConnectRestAPI/api';
+const BASE_API= import.meta.env.VITE_BASE_API_URL || 'http://115.187.62.16:8005/PujaConnectRestAPI/api';
 
 export interface DashboardStats {
   today_survey_qty: number;
@@ -13,6 +16,13 @@ export interface ApiResponse<T> {
   status: number;
   message: string;
   data: T;
+}
+
+export interface PriestInfo {
+  priest_user_id: number;
+  priest_name: string;
+  priest_email: string;
+  priest_mobile: string;
 }
 
 /**
@@ -105,4 +115,28 @@ export const getUserData = (): { user_id: number } | null => {
     }
   }
   return null;
+};
+
+export const getAuthorityPriestInfo = async (
+ payload:any
+
+): Promise<PriestInfo> => {
+  try {
+    const response = await callApi(
+      '/priest/get_authority_priest_info',
+      'POST',
+      payload
+    );
+
+    
+    if (response?.status === 0 && response.data) {
+      
+      return JSON.parse(response.data) as PriestInfo;
+    }
+
+    throw new Error(response?.message || 'Failed to fetch priest info');
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error instanceof Error ? error : new Error('Failed to fetch priest info');
+  }
 };
