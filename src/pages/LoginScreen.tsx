@@ -304,6 +304,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         response = await authServiceV1.validateOTP(cleanPhone, otp);
       }
 
+      // Check if status is not 0 (validation failed)
+      if (response.status !== 0) {
+        setLoading(false);
+        setError(response.message || 'Invalid OTP. Please try again.');
+
+        // Reset to phone step after showing error for 2 seconds
+        // setTimeout(() => {
+        //   setStep('phone');
+        //   setOtp('');
+        //   setPhoneNumber('');
+        //   setError('');
+        // }, 2000);
+        return;
+      }
+
       // The userData is already stored in localStorage by authServiceV1
       // But if you still want to access it:
       const userData = response.userData;
@@ -524,7 +539,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   <div className="flex items-center justify-center gap-4 text-sm font-semibold">
                     <button type="button" className="text-orange-600 hover:text-orange-700">Resend Code</button>
                     <span className="text-slate-300">•</span>
-                    <button type="button" onClick={() => { setStep('phone'); setOtp(''); }} className="text-slate-500 hover:text-slate-700">Change Number</button>
+                    <button type="button" onClick={() => { setStep('phone'); setOtp(''); setError(''); }} className="text-slate-500 hover:text-slate-700">Change Number</button>
                   </div>
                 </div>
               </form>

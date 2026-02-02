@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Flame, Plus, Search, Eye, Edit2, Trash2, X,
   Check, Clock, XOctagon, LayoutGrid, Wallet,
-  Sparkles, Filter, MoreHorizontal, ArrowUpRight
+  Sparkles, Filter, MoreHorizontal, ArrowUpRight,
+  ArrowLeft
 } from 'lucide-react';
 import type { UserData } from '../services/authService';
 import { getAgentDashboard, getAuthorityPriestInfo, getAuthToken, getUserData, type DashboardStats } from '../services/dashboardservice';
@@ -150,12 +151,12 @@ export interface PriestDetails {
   priest_present_post_office: string;
   priest_approval_status: string;
   priest_experience_year: number;
-  status:string;
+  status: string;
 }
 
 
 
-  
+
 
 interface AgentStats {
   todaySurvey: number;
@@ -183,6 +184,9 @@ export const Dashboard: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize] = useState(10); // You can make this configurable if needed
+  const [totalRecords, setTotalRecords] = useState(0);
 
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -192,12 +196,11 @@ export const Dashboard: React.FC = () => {
     const stored = localStorage.getItem('puja_connect_user');
     if (stored) setUserData(JSON.parse(stored));
 
-    loadPriestData();
+    loadPriestData(currentPage); // Pass current page
     loadDashboardStats();
 
-
     return () => { document.head.removeChild(styleSheet); };
-  }, []);
+  }, [currentPage]); // Add currentPage as dependency
 
   const loadDashboardStats = async () => {
     try {
@@ -218,8 +221,7 @@ export const Dashboard: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
-  const loadPriestData = useCallback(async () => {
-
+  const loadPriestData = useCallback(async (pageNo: number = 0) => {
     try {
       setLoading(true);
       setError(null);
@@ -232,12 +234,11 @@ export const Dashboard: React.FC = () => {
       }
 
       const payload = {
-        // authority_user_id: user.user_id,
         authority_user_id: 2,
         priest_user_id: 0,
         status_id: 0,
-        page_no: 0,
-        page_size: 10,
+        page_no: pageNo,
+        page_size: pageSize,
         from_date: "",
         to_date: ""
       }
@@ -248,13 +249,16 @@ export const Dashboard: React.FC = () => {
 
       const priestList = (data as unknown) as PriestDetails[];
       setAllPriests(priestList || []);
-      // updateStats(priestList || []);
+
+      // If your API returns total count, set it here
+      // setTotalRecords(data.totalCount || priestList.length);
+
     } catch (err: any) {
       setError(err.message || 'Something went wrong fetching priests');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pageSize]);
   useEffect(() => {
     setStats(prev => ({
       ...prev,
@@ -282,6 +286,18 @@ export const Dashboard: React.FC = () => {
     setPriests(priests.filter(x => x.id !== id));
     setShowViewModal(false);
     loadDashboardStats();
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => prev + 1);
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
+
+  const handlePageJump = (pageNo: number) => {
+    setCurrentPage(pageNo);
   };
 
   const filtered = allpriests.filter(p => {
@@ -619,31 +635,129 @@ export const Dashboard: React.FC = () => {
             </table>
           </div>
 
-          {/* Table Footer */}
-          <div className="p-4 bg-stone-50 border-t border-stone-200 flex justify-between items-center text-xs font-bold text-stone-400 uppercase tracking-widest">
-            <span>Showing {filtered.length} Records</span>
-            <div className="flex gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+          {/* --- UNIFIED PAGINATION & FOOTER --- */}
+          <div className="border-t border-stone-200 bg-stone-50/50 p-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+
+            {/* Left Section: Record Status */}
+            <div className="flex items-center gap-3">
+              <div className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500"></span>
+              </div>
+              {/* <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                Showing {filtered.length > 0 ? currentPage * pageSize + 1 : 0} - {Math.min((currentPage + 1) * pageSize, totalRecords || Math.max(filtered.length, 10))} Records
+              </span> */}
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Showing {filtered.length} Records</span>
+            </div>
+
+            {/* Right Section: Circular Pagination Controls */}
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-full border border-stone-200 shadow-sm">
+
+              <button
+                onClick={handlePrevPage}
+                disabled={currentPage === 0}
+                className={`
+                  w-9 h-9 flex items-center justify-center rounded-full transition-all duration-200 group
+                  ${currentPage === 0
+                    ? 'text-stone-300 cursor-not-allowed bg-transparent'
+                    : 'text-stone-600 hover:bg-orange-50 hover:text-orange-600 active:scale-95'
+                  }
+                `}
+                title="Previous"
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+              </button>
+
+              <div className="hidden sm:flex items-center gap-1 px-2 border-l border-r border-stone-100 h-5">
+                {(() => {
+                  const totalCount = totalRecords || (filtered.length > pageSize ? filtered.length : 50);
+                  const totalPages = Math.ceil(totalCount / pageSize) || 1;
+
+                  const pages = [];
+                  let start = Math.max(0, currentPage - 1);
+                  let end = Math.min(totalPages - 1, start + 2);
+
+                  if (end - start < 2 && totalPages > 2) {
+                    if (start === 0) end = Math.min(2, totalPages - 1);
+                    else if (end === totalPages - 1) start = Math.max(0, totalPages - 3);
+                  }
+
+                  if (start > 0) {
+                    pages.push(
+                      <button key={0} onClick={() => handlePageJump(0)} className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold text-stone-500 hover:bg-stone-100 transition-colors">1</button>
+                    );
+                    if (start > 1) pages.push(<span key="dots1" className="text-stone-300 text-[10px]">•</span>);
+                  }
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        onClick={() => handlePageJump(i)}
+                        className={`
+                              w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition-all duration-300
+                              ${currentPage === i
+                            ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-md scale-105'
+                            : 'text-stone-500 hover:bg-stone-100 hover:text-orange-600'
+                          }
+                            `}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  }
+
+                  if (end < totalPages - 1) {
+                    if (end < totalPages - 2) pages.push(<span key="dots2" className="text-stone-300 text-[10px]">•</span>);
+                    pages.push(
+                      <button key={totalPages - 1} onClick={() => handlePageJump(totalPages - 1)} className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold text-stone-500 hover:bg-stone-100 transition-colors">{totalPages}</button>
+                    );
+                  }
+                  return pages;
+                })()}
+              </div>
+
+              <button
+                onClick={handleNextPage}
+                className={`
+                  w-9 h-9 flex items-center justify-center rounded-full transition-all duration-200 group
+                  text-stone-600 hover:bg-orange-50 hover:text-orange-600 active:scale-95
+                `}
+                title="Next"
+              >
+                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </button>
             </div>
           </div>
+
         </div>
+
+        {/* Table Footer */}
+        {/* <div className="p-4 bg-stone-50 border-t border-stone-200 flex justify-between items-center text-xs font-bold text-stone-400 uppercase tracking-widest">
+
+          <div className="flex gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+          </div>
+        </div> */}
 
       </main>
 
       {/* Modals */}
       {showAddModal && <AddPriestModal onClose={() => setShowAddModal(false)} onAdd={handleAddPriest} />}
-      {showViewModal && selectedPriest && (
-        <ViewEditPriestModal
-          priest={selectedPriest}
-          isEditMode={isEditMode}
-          onClose={() => { setShowViewModal(false); setIsEditMode(false); }}
-          onEdit={handleEditPriest}
-          onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.priest_user_id); }}
-        />
-      )}
-    </div>
+      {
+        showViewModal && selectedPriest && (
+          <ViewEditPriestModal
+            priest={selectedPriest}
+            isEditMode={isEditMode}
+            onClose={() => { setShowViewModal(false); setIsEditMode(false); }}
+            onEdit={handleEditPriest}
+            onDelete={() => { if (confirm('Delete?')) handleDeletePriest(selectedPriest.priest_user_id); }}
+          />
+        )
+      }
+    </div >
   );
 };
 
@@ -716,7 +830,7 @@ const StatCard3D = ({ label, value, icon, color, trend, delay }: any) => {
           group-hover:rotate-12 group-hover:scale-110
           transition-all duration-300
         `}>
-          {React.cloneElement(icon, { size: 24, strokeWidth: 2.5 })}
+          {icon && typeof icon === 'object' ? React.cloneElement(icon as React.ReactElement, { size: 24, strokeWidth: 2.5 }) : icon}
         </div>
       </div>
 
@@ -839,32 +953,66 @@ const AddPriestModal: React.FC<any> = ({ onClose, onAdd }) => {
 };
 
 const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdit, onDelete }) => {
+  // Use the incoming priest data which is in snake_case
   const [f, setF] = useState(priest);
-  const sub = (e: any) => { e.preventDefault(); onEdit({ ...f, updatedAt: new Date().toISOString() }) };
+
+  const sub = (e: any) => {
+    e.preventDefault();
+    onEdit({ ...f, updatedAt: new Date().toISOString() });
+  };
 
   return (
     <ModalFrame title={isEditMode ? 'Edit Details' : 'Priest Profile'} onClose={onClose}>
       <form onSubmit={sub} className="space-y-6">
         {!isEditMode && (
           <div className="flex items-center gap-6 mb-8 pb-8 border-b border-stone-100">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">{priest.PriestName.charAt(0)}</div>
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-100 to-white border border-orange-200 flex items-center justify-center text-4xl font-sacred text-orange-700 shadow-sm">
+              {/* FIXED: Accessed priest_name instead of PriestName */}
+              {(priest.priest_name || 'A').charAt(0).toUpperCase()}
+            </div>
             <div>
-              <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.PriestName}</h2>
-              <div className="mt-3"><StatusBadge status={priest.status} /></div>
+              {/* FIXED: Accessed priest_name instead of PriestName */}
+              <h2 className="text-3xl font-bold font-sacred text-stone-800">{priest.priest_name}</h2>
+              <div className="mt-3"><StatusBadge status={priest.status || 'pending'} /></div>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <GeometricInput disabled={!isEditMode} label="Name" value={f.PriestName} onChange={(e: any) => setF({ ...f, PriestName: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Phone" value={f.PriestContactNumber} onChange={(e: any) => setF({ ...f, PriestContactNumber: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Email" value={f.PriestEmail} onChange={(e: any) => setF({ ...f, PriestEmail: e.target.value })} />
-          <GeometricInput disabled={!isEditMode} label="Location" value={f.PriestLocation} onChange={(e: any) => setF({ ...f, PriestLocation: e.target.value })} />
+          {/* FIXED: Updated all value/onChange props to use snake_case keys */}
+          <GeometricInput
+            disabled={!isEditMode}
+            label="Name"
+            value={f.priest_name}
+            onChange={(e: any) => setF({ ...f, priest_name: e.target.value })}
+          />
+          <GeometricInput
+            disabled={!isEditMode}
+            label="Phone"
+            value={f.priest_contact_no}
+            onChange={(e: any) => setF({ ...f, priest_contact_no: e.target.value })}
+          />
+          <GeometricInput
+            disabled={!isEditMode}
+            label="Email"
+            value={f.priest_email}
+            onChange={(e: any) => setF({ ...f, priest_email: e.target.value })}
+          />
+          <GeometricInput
+            disabled={!isEditMode}
+            label="Location"
+            value={f.priest_present_city_town_village}
+            onChange={(e: any) => setF({ ...f, priest_present_city_town_village: e.target.value })}
+          />
 
           {isEditMode && (
             <div className="col-span-2">
               <label className="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2 ml-1">Status</label>
-              <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-lg font-medium outline-none focus:ring-2 focus:ring-orange-100 stone-inset">
+              <select
+                value={f.status}
+                onChange={(e) => setF({ ...f, status: e.target.value })}
+                className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-lg font-medium outline-none focus:ring-2 focus:ring-orange-100 stone-inset"
+              >
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
@@ -881,6 +1029,7 @@ const ViewEditPriestModal: React.FC<any> = ({ priest, isEditMode, onClose, onEdi
             </>
           ) : (
             <>
+              {/* FIXED: Accessed priest_user_id instead of ID */}
               <button type="button" onClick={onDelete} className="px-8 py-3.5 rounded-lg bg-red-50 text-red-600 font-bold border border-red-100 hover:bg-red-100 hover:border-red-200 transition-all">DELETE</button>
               <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-lg bg-stone-800 text-white font-bold hover:bg-stone-900 transition-all shadow-lg shadow-stone-200">CLOSE</button>
             </>
