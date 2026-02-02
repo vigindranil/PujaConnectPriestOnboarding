@@ -50,6 +50,7 @@ interface PriestRegistrationFormData {
   longitude?: string;
   authorizationLetterURL?: string;
   selectedPujas: string[];
+  priestPhoto:any;
   pujaPrices: { [key: string]: { withSamagri: string; withoutSamagri: string } };
 }
 
@@ -815,6 +816,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
     additionalLanguages: [],
     associatedWithTemple: false,
     selectedPujas: [],
+    priestPhoto: '',
     pujaPrices: {},
   });
 
