@@ -14,7 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({ userData, onLogout }) => {
     // Get initials from user name
     const getInitials = (name: string) => {
         return name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-    };
+    }; 
 
     return (
         <nav className="bg-white/80 backdrop-blur-xl shadow-lg border-b border-white/20 sticky top-0 z-50 transition-all duration-300">

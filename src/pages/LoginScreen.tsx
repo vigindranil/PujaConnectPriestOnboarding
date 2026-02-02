@@ -315,8 +315,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         setTimeout(() => {
           if (onLoginSuccess) onLoginSuccess();
           navigate('/dashboard');
-        }, 3000);
-      }, 1500);
+        }, 300);
+      }, 150);
     } catch (err) {
       setLoading(false);
       setError(err instanceof Error ? err.message : 'Failed to verify OTP. Please try again.');

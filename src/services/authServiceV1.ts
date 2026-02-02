@@ -5,7 +5,7 @@ export const authServiceV1 = {
   
   // --- OTP Generation ---
   
-  sendOTP: (mobile: string) => {
+  sendOTP: (mobile: string) => { 
     return callApi('/auth/generate_otp', 'POST', { mobile_number: mobile });
   },
 
