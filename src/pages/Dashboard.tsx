@@ -184,7 +184,7 @@ export const Dashboard: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10); // You can make this configurable if needed
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -221,7 +221,7 @@ export const Dashboard: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
-  const loadPriestData = useCallback(async (pageNo: number = 0) => {
+  const loadPriestData = useCallback(async (pageNo: number = 1) => {
     try {
       setLoading(true);
       setError(null);
@@ -234,10 +234,10 @@ export const Dashboard: React.FC = () => {
       }
 
       const payload = {
-        authority_user_id: 2,
+        authority_user_id: 2, // Use actual user ID
         priest_user_id: 0,
         status_id: 0,
-        page_no: pageNo,
+        page_no: pageNo, // This will now be 1, 2, 3... instead of 0, 1, 2...
         page_size: pageSize,
         from_date: "",
         to_date: ""
@@ -293,7 +293,7 @@ export const Dashboard: React.FC = () => {
   };
 
   const handlePrevPage = () => {
-    setCurrentPage(prev => Math.max(0, prev - 1));
+    setCurrentPage(prev => Math.max(1, prev - 1));
   };
 
   const handlePageJump = (pageNo: number) => {
@@ -650,12 +650,14 @@ export const Dashboard: React.FC = () => {
               <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">Showing {filtered.length} Records</span>
             </div>
 
+
+            {/* pagination should be different component */}
             {/* Right Section: Circular Pagination Controls */}
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-full border border-stone-200 shadow-sm">
 
               <button
                 onClick={handlePrevPage}
-                disabled={currentPage === 0}
+                disabled={currentPage === 1}
                 className={`
                   w-9 h-9 flex items-center justify-center rounded-full transition-all duration-200 group
                   ${currentPage === 0
@@ -674,7 +676,7 @@ export const Dashboard: React.FC = () => {
                   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
                   const pages = [];
-                  let start = Math.max(0, currentPage - 1);
+                  let start = Math.max(1, currentPage - 1);
                   let end = Math.min(totalPages - 1, start + 2);
 
                   if (end - start < 2 && totalPages > 2) {
@@ -682,7 +684,7 @@ export const Dashboard: React.FC = () => {
                     else if (end === totalPages - 1) start = Math.max(0, totalPages - 3);
                   }
 
-                  if (start > 0) {
+                  if (start > 1) {
                     pages.push(
                       <button key={0} onClick={() => handlePageJump(0)} className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold text-stone-500 hover:bg-stone-100 transition-colors">1</button>
                     );
@@ -702,7 +704,7 @@ export const Dashboard: React.FC = () => {
                           }
                             `}
                       >
-                        {i + 1}
+                        {i}
                       </button>
                     );
                   }
