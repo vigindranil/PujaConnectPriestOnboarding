@@ -6,7 +6,7 @@ import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename="/pujaConnect">  {/* ADD THIS WRAPPER */}
+    <BrowserRouter basename="/pujaconnectonboard">  {/* ADD THIS WRAPPER */}
       <App />
     </BrowserRouter>  {/* ADD THIS CLOSING TAG */}
   </StrictMode>,

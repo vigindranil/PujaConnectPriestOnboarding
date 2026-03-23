@@ -283,6 +283,56 @@ class PriestService {
     }
   }
 
+
+
+  async saveDocument(
+  docOwnerId: number,
+  docTypeId: number,
+  file: File | Blob,
+  fileName: string
+): Promise<ApiResponse> {
+  try {
+    const token = await authService.getValidToken();
+    
+    let entryUserId = 1;
+    const storedUser = localStorage.getItem('puja_connect_user');
+    if (storedUser) {
+      try { entryUserId = JSON.parse(storedUser).user_id || 1; } catch(e) {}
+    }
+
+    const payload = {
+      enc_data: JSON.stringify({
+        doc_owner_id: docOwnerId,
+        doc_type_id: docTypeId,
+        entry_user_id: entryUserId
+      })
+    };
+
+    const formData = new FormData();
+    formData.append('data', JSON.stringify(payload));
+    formData.append('file', file, fileName);
+
+    const response = await fetch(`${API_BASE_URL}/priest/save_document`, {
+      method: 'POST',
+      headers: {
+        'accept': '*/*',
+        'Authorization': `Bearer ${token}`,
+        // Do NOT set Content-Type — browser sets it with boundary automatically
+      },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    const data: ApiResponse = await response.json();
+    if (data.status === 0) return data;
+    else throw new Error(data.message || 'Failed to save document');
+  } catch (error) {
+    console.error('Error saving document:', error);
+    throw error;
+  }
+}
+
   
 }
 

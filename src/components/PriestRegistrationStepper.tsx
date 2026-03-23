@@ -50,7 +50,7 @@ interface PriestRegistrationFormData {
   longitude?: string;
   authorizationLetterURL?: string;
   selectedPujas: string[];
-  priestPhoto:any;
+  priestPhoto: any;
   pujaPrices: { [key: string]: { withSamagri: string; withoutSamagri: string } };
 }
 
@@ -112,6 +112,9 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
   const [pujas, setPujas] = useState<ApiPujaType[]>([]);
   const [loadingPujas, setLoadingPujas] = useState(false);
   const [testingMode, setTestingMode] = useState(false); // Set to false for production
+  const [priestPhotoFile, setPriestPhotoFile] = useState<File | null>(null);
+  const [documentFile, setDocumentFile] = useState<File | null>(null); // ADD THIS
+
 
 
   // Dropdown visibility states
@@ -1865,27 +1868,22 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        // Validate file size (max 5MB)
                         if (file.size > 5 * 1024 * 1024) {
                           showError('File Too Large ⚠️', 'Maximum file size is 5MB');
                           return;
                         }
-
-                        // Validate file type
                         if (!['image/jpeg', 'image/png'].includes(file.type)) {
                           showError('Invalid File Type ⚠️', 'Only JPG and PNG files are allowed');
                           return;
                         }
 
-                        // Convert file to base64
+                        setPriestPhotoFile(file); // store raw file for upload
+
+                        // base64 only for preview
                         const reader = new FileReader();
                         reader.onload = (event) => {
-                          const base64String = event.target?.result as string;
-                          handleInputChange('priestPhoto', base64String);
-                          showSuccess('Photo Uploaded ✓', 'Your profile photo has been added');
-                        };
-                        reader.onerror = () => {
-                          showError('Upload Failed ❌', 'Could not read the file');
+                          handleInputChange('priestPhoto', event.target?.result as string);
+                          showSuccess('Photo Selected ✓', 'Your profile photo has been added');
                         };
                         reader.readAsDataURL(file);
                       }
@@ -1907,6 +1905,7 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                           onClick={(e) => {
                             e.stopPropagation();
                             handleInputChange('priestPhoto', '');
+                            setPriestPhotoFile(null); // clear raw file too
                             (document.getElementById('priestPhotoInput') as HTMLInputElement).value = '';
                           }}
                           className="absolute top-0 right-1/2 transform translate-x-16 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-all"
@@ -2087,13 +2086,69 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                   />
                 </div>
 
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer group">
-                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-100 transition-all">
-                    <span className="text-3xl">📁</span>
+                <div>
+                  <input
+                    type="file"
+                    id="documentFileInput"
+                    accept="image/jpeg,image/png,application/pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          showError('File Too Large ⚠️', 'Maximum file size is 5MB');
+                          return;
+                        }
+                        if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)) {
+                          showError('Invalid File Type ⚠️', 'Only JPG, PNG and PDF files are allowed');
+                          return;
+                        }
+                        setDocumentFile(file);
+                        showSuccess('Document Selected ✓', `${file.name} has been added`);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => document.getElementById('documentFileInput')?.click()}
+                    className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-orange-400 hover:bg-orange-50 transition-all cursor-pointer group"
+                  >
+                    {documentFile ? (
+                      <div>
+                        {documentFile.type.startsWith('image/') ? (
+                          <img
+                            src={URL.createObjectURL(documentFile)}
+                            alt="Document"
+                            className="w-32 h-32 rounded-xl mx-auto object-cover border-4 border-orange-200"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 bg-red-50 border-2 border-red-200 rounded-xl flex items-center justify-center mx-auto">
+                            <span className="text-4xl">📄</span>
+                          </div>
+                        )}
+                        <p className="text-sm font-semibold text-gray-800 mt-3">{documentFile.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">{(documentFile.size / 1024).toFixed(1)} KB</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDocumentFile(null);
+                            (document.getElementById('documentFileInput') as HTMLInputElement).value = '';
+                          }}
+                          className="mt-3 px-4 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-all"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-100 transition-all">
+                          <span className="text-3xl">📁</span>
+                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-2">Upload Document</h3>
+                        <p className="text-sm text-gray-600">Click to browse or drag and drop</p>
+                        <p className="text-xs text-gray-500 mt-2">PDF, JPG or PNG (Max 5MB)</p>
+                      </>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Upload Document</h3>
-                  <p className="text-sm text-gray-600">Click to browse or drag and drop</p>
-                  <p className="text-xs text-gray-500 mt-2">PDF, JPG or PNG (Max 5MB)</p>
                 </div>
               </div>
             </div>
@@ -2951,6 +3006,56 @@ export const PriestRegistrationStepper: React.FC<PriestRegistrationStepperProps>
                 //   if (success) setCurrentStep(currentStep + 1);
                 //   return;
                 // }  
+
+                if (currentStep === 3) {
+                  if (priestPhotoFile && registeredUserId) {
+                    try {
+                      setLoadingRegistration(true);
+                      await priestService.saveDocument(
+                        registeredUserId,
+                        6, // confirm doc_type_id for profile photo with backend
+                        priestPhotoFile,
+                        priestPhotoFile.name
+                      );
+                      showSuccess('Photo Uploaded ✓', 'Profile photo saved successfully.');
+                      setCurrentStep(currentStep + 1);
+                    } catch (error) {
+                      showError('Photo Upload Failed ❌', 'Could not upload profile photo. Please try again.');
+                      // stays on step 3
+                    } finally {
+                      setLoadingRegistration(false);
+                    }
+                  } else {
+                    setCurrentStep(currentStep + 1);
+                  }
+                  return;
+                }
+
+                // Handle Step 5 (Document Upload)
+                if (currentStep === 5) {
+                  if (documentFile && registeredUserId) {
+                    try {
+                      setLoadingRegistration(true);
+                      const selectedDocType = documentTypes.find(d => d.doc_type_name === formData.documentType);
+                      await priestService.saveDocument(
+                        registeredUserId,
+                        selectedDocType?.doc_type_id ?? 1,
+                        documentFile,
+                        documentFile.name
+                      );
+                      showSuccess('Document Uploaded ✓', 'Your document has been saved successfully.');
+                      setCurrentStep(currentStep + 1);
+                    } catch (error) {
+                      showError('Document Upload Failed ❌', 'Could not upload document. Please try again.');
+                      // stays on step 5
+                    } finally {
+                      setLoadingRegistration(false);
+                    }
+                  } else {
+                    setCurrentStep(currentStep + 1);
+                  }
+                  return;
+                }
 
                 // 4. Handle Step 9 (Professional & Temple Details)
                 if (currentStep === 9) {
